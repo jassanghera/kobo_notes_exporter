@@ -102,9 +102,6 @@ df_highlights_sorted = sort_highlights(df_highlights)
 # CHAPTERS & HIGHLIGHTS FOR A GIVEN BOOK
 # ----------------------------------------------------------------------------------
 
-VolumeID_list = df_highlights['VolumeID'].unique().tolist()
-sample_VolumeID = VolumeID_list[5]
-
 def map_chapters_to_highlights(volume_id):
 
 
@@ -158,7 +155,6 @@ def get_highlight_counts():
 # # GET LIST OF CHAPTER TITLES FOR A GIVEN BOOK
 # # --------------------------------------------------------------------------------------------------
 
-# write a function that gets the chapter titles for a given VolumeID from either the kepub or epub chapters dataframes
 def get_chapter_titles(volume_id):
     # try kepub chapters first
     kepub_chapters = df_kepub_chapters[df_kepub_chapters['BookID'] == volume_id].sort_values('VolumeIndex')
@@ -210,7 +206,7 @@ def export_txt(volumeID):
         f.write(title + "\n")
         f.write(author + "\n\n")
         
-        chap_and_hl = map_chapters_to_highlights(sample_VolumeID)
+        chap_and_hl = map_chapters_to_highlights(volumeID)
 
         for ch, hl in chap_and_hl.items():
             f.write("_______________________________________________________________" + "\n")
@@ -258,7 +254,7 @@ def export_md(volumeID):
 # ------------------------------------------------------------------------------------------------
 
 VolumeID_list = df_highlights['VolumeID'].unique().tolist()
-sample_VolumeID = VolumeID_list[1]
+sample_VolumeID = VolumeID_list[2]
 export_md(sample_VolumeID)
 print(f'Successfully called md function')
 export_txt(sample_VolumeID)
