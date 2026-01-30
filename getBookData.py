@@ -209,22 +209,22 @@ def map_chapters_to_highlights(volume_id):
     return chapters_to_highlights
 
 
-# pretty print chapter titles & highlights
-def print_mapped_highlights(mapped_highlights):
+# # pretty print chapter titles & highlights
+# def print_mapped_highlights(mapped_highlights):
 
-    print("Mapped Highlights to Chapters:")
-    print('\n')
+#     print("Mapped Highlights to Chapters:")
+#     print('\n')
 
-    for chapter, highlights in mapped_highlights.items():
-        print(f'Chapter: {chapter}')
-        for highlight in highlights:
-            print(f'- {highlight}')
-        print("\n")
-    print("\n")
+#     for chapter, highlights in mapped_highlights.items():
+#         print(f'Chapter: {chapter}')
+#         for highlight in highlights:
+#             print(f'- {highlight}')
+#         print("\n")
+#     print("\n")
 
-# example usage
-mapped_highlights = map_chapters_to_highlights(sample_VolumeID)
-print_mapped_highlights(mapped_highlights)
+# # example usage
+# mapped_highlights = map_chapters_to_highlights(sample_VolumeID)
+# print_mapped_highlights(mapped_highlights)
 
 
 # --------------------------------------------------------------------------------------------------
@@ -299,5 +299,25 @@ def get_book_author(volume_id):
 # print(f'The same book author is: {book_author}')
 
 
+# -------------------------------------------------------------------------------------------------
+# EXPORT TO TXT FILE
+# -------------------------------------------------------------------------------------------------
+file = 'test.txt'
+with open(file, 'w', encoding='utf-8') as f:
 
+    f.write(get_book_title(sample_VolumeID) + "\n")
+    f.write(get_book_author(sample_VolumeID) + "\n\n")
+    
+    chap_and_hl = map_chapters_to_highlights(sample_VolumeID)
+
+    for ch, hl in chap_and_hl.items():
+        f.write("_______________________________________________________________" + "\n")
+        f.write(f'Chapter: {ch}' + '\n\n')
+    
+        for h in hl:
+            f.write(f'- {h}' + '\n')
+        f.write("\n")
+    f.write("\n")
+
+    print(f'Wrote to {f.name} successfully!')
 
