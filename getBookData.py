@@ -1,8 +1,8 @@
 import sqlite3
 import pandas as pd # pip install pandas
+import re
 
 # connect to the KoboReader sqlite database
-
 connection = sqlite3.connect('KoboReader.sqlite')
 cursor = connection.cursor()
 
@@ -45,22 +45,8 @@ df_epub_chapters = create_df(epub_chapters_query)
 df_kepub_chapters = create_df(kepub_chapters_query)
 df_highlights = create_df(highlights_query)
 
-# ----------------------------------------------------------------------------------
-# PRINTING for testing
-# ----------------------------------------------------------------------------------
-
-# # print kepub chapters VolumeIndex column sample
-# print("KEPUB Chapters VolumeIndex Sample:")
-# print(df_kepub_chapters[['Title', 'VolumeIndex']].head(10))
-# print("\n")
-
-# # print epub chapters VolumeIndex column sample
-# print("EPUB Chapters VolumeIndex Sample:")
-# print(df_epub_chapters[['Title', 'VolumeIndex']].head(10))
-# print("\n")
-
 # --------------------------------------------------------------------------------
-# MATCHING KEPUB CONTENTIDs
+# MATCHING KEPUB CONTENTIDs - helper fn
 # ----------------------------------------------------------------------------------
 
 # build a lookup dict for kepub ContentIDs and VolumeIndex
@@ -76,24 +62,13 @@ def lookup_kepub_index(content_id):
             return vol_idx
     return None
 
-# print sample of dictionary
-# print("Kepub ContentID to VolumeIndex Lookup Sample:")
-# for i, (ch_id, vol_idx) in enumerate(kepub_id_lookup.items()):
-#     if i >= 5:
-#         break
-#     print(f"{ch_id} -> {vol_idx}")
-
-# print('\n')
-
 # -----------------------------------------------------------------------------------
 # ATTACH KEPUB VOLUMEINDEX TO HIGHLIGHTS (epub as backup)
 # ----------------------------------------------------------------------------------
 
 # add kepub VolumeIndex column to highlights df manually using the lookup function
 df_highlights['VolumeIndex'] = df_highlights['ContentID'].apply(lookup_kepub_index)
-# print("Highlights with KEPUB VolumeIndex:")
-# print(df_highlights[['ContentID', 'VolumeIndex']].tail(20))
-# print("\n")
+
 
 # insert epub VolumeIndex as backup where kepub VolumeIndex is missing, consider exact match of ContentID
     
@@ -106,53 +81,13 @@ for _i, row in df1:
     if pd.isna(VolumeIndex):                                                            # if highlight VolumeIndex is NaN
         epub_row = df_epub_chapters.loc[df_epub_chapters['ContentID'] == ContentID]     # get epub_chapter row with matching ContentID
         epub_vidx = epub_row.iloc[0]['VolumeIndex']                                     # get value of epub VolumeIndex
-        # print(epub_vidx)
 
         rowidx_vidx[_i] = epub_vidx    # store epub VolumeIndex in dict with corresponding highlight index
-        # print(rowidx_vidx)
-
-        # print(_i)
-        # df_highlights.at[_i, 'VolumeIndex'] = epub_vidx
-        # print(df_highlights.loc[_i,'VolumeIndex'])
-        
-# print("Highlights with KEPUB VolumeIndex AFTER EPUB BACKUP:")
-# print(df_highlights[['ContentID', 'VolumeIndex']].tail(20))
-# print("\n")
 
 # update highlight VolumeIndex column with vidx values from dict at row with index rowidx
 
 for idx, val in rowidx_vidx.items():
-    print(idx, val)
     df_highlights.at[idx, 'VolumeIndex'] = val
-
-print("Highlights with KEPUB VolumeIndex AFTER EPUB BACKUP ATTEMPT 2:")
-print(df_highlights[['ContentID', 'VolumeIndex']].tail(10))
-print("\n")
-
-
-# -----------------------------------------------------------------------------------
-# PRINTING FOR TESTING
-# ----------------------------------------------------------------------------------
-
-# print("HIGHLIGHT:")
-# print(df_highlights['ContentID'].iloc[0])
-# print("\n")
-
-# print("\nCHAPTER:")
-# print(df_kepub_chapters['ContentID'].iloc[0])
-# print("\n")
-
-# sample_highlight = df_highlights['ContentID'].iloc[0]
-
-# matches = [
-#     ch_id for ch_id in df_kepub_chapters['ContentID']
-#     if ch_id.startswith(sample_highlight)
-# ]
-
-# print("MATCHES:")
-# print(len(matches))
-# print(matches[:5])
-# print("\n")
 
 #----------------------------------------------------------------------------------
 # SORT HIGHLIGHTS BY CHAPTER INDICES
@@ -162,12 +97,6 @@ def sort_highlights(df):
     return df.sort_values(by=['VolumeID', 'VolumeIndex'])
 
 df_highlights_sorted = sort_highlights(df_highlights)
-
-# print("Sorted Highlights Sample:")
-# print(df_highlights_sorted[['ContentID', 'VolumeIndex']].tail(10))
-# print("\n")
-
-# print(df_highlights_sorted.iloc[122])
 
 # ----------------------------------------------------------------------------------
 # CHAPTERS & HIGHLIGHTS FOR A GIVEN BOOK
@@ -208,25 +137,6 @@ def map_chapters_to_highlights(volume_id):
 
     return chapters_to_highlights
 
-
-# # pretty print chapter titles & highlights
-# def print_mapped_highlights(mapped_highlights):
-
-#     print("Mapped Highlights to Chapters:")
-#     print('\n')
-
-#     for chapter, highlights in mapped_highlights.items():
-#         print(f'Chapter: {chapter}')
-#         for highlight in highlights:
-#             print(f'- {highlight}')
-#         print("\n")
-#     print("\n")
-
-# # example usage
-# mapped_highlights = map_chapters_to_highlights(sample_VolumeID)
-# print_mapped_highlights(mapped_highlights)
-
-
 # --------------------------------------------------------------------------------------------------
 # GET LIST OF HIGHLIGHTED BOOKS WITH COUNT OF HIGHLIGHTS FOR EACH
 # --------------------------------------------------------------------------------------------------
@@ -242,11 +152,6 @@ def get_highlight_counts():
 
     # select relevant columns
     return books_with_highlights[['Title', 'Attribution', 'HighlightCount']]
-
-
-# print("Books with Highlights:")
-# print(get_highlight_counts())
-# print("\n")
 
 
 # # --------------------------------------------------------------------------------------------------
@@ -267,17 +172,6 @@ def get_chapter_titles(volume_id):
 
     return []
 
-
-# # example usage
-# chapter_titles = get_chapter_titles(sample_VolumeID)
-
-# # pretty print all chapter titles
-# print("Chapter Titles:")
-# for title in chapter_titles:
-#     print(f"- {title}")
-# print("\n")
-
-
 # -------------------------------------------------------------------------------------------------
 # getters - book title, author
 # -------------------------------------------------------------------------------------------------
@@ -287,37 +181,88 @@ def get_book_title(volume_id):
     title = book.iloc[0]['Title']
     return title
 
-# book_title = get_book_title(sample_VolumeID)
-# print(f'The sample book is: {book_title}')
-
 def get_book_author(volume_id):
     book = df_books[df_books['ContentID'] == volume_id]
     author = book.iloc[0]['Attribution']
     return author
 
-# book_author = get_book_author(sample_VolumeID)
-# print(f'The same book author is: {book_author}')
+# -------------------------------------------------------------------------------------------------
+# make safe file names - no [\\/*?:"<>|] allowed
+# -------------------------------------------------------------------------------------------------
+
+def safe_filename(filename):
+    return re.sub(r'[\\/*?:"<>|]', "", filename)
 
 
 # -------------------------------------------------------------------------------------------------
 # EXPORT TO TXT FILE
 # -------------------------------------------------------------------------------------------------
-file = 'test.txt'
-with open(file, 'w', encoding='utf-8') as f:
 
-    f.write(get_book_title(sample_VolumeID) + "\n")
-    f.write(get_book_author(sample_VolumeID) + "\n\n")
-    
-    chap_and_hl = map_chapters_to_highlights(sample_VolumeID)
+def export_txt(volumeID):
 
-    for ch, hl in chap_and_hl.items():
-        f.write("_______________________________________________________________" + "\n")
-        f.write(f'Chapter: {ch}' + '\n\n')
-    
-        for h in hl:
-            f.write(f'- {h}' + '\n')
+    title = get_book_title(volumeID)
+    author = get_book_author(volumeID)
+
+    filename = safe_filename(f'{title} - {author}.txt')
+
+    with open(filename, 'w', encoding='utf-8') as f:
+
+        f.write(title + "\n")
+        f.write(author + "\n\n")
+        
+        chap_and_hl = map_chapters_to_highlights(sample_VolumeID)
+
+        for ch, hl in chap_and_hl.items():
+            f.write("_______________________________________________________________" + "\n")
+            f.write(f'Chapter: {ch}' + '\n\n')
+        
+            for h in hl:
+                f.write(f'- {h}' + '\n')
+            f.write("\n")
         f.write("\n")
-    f.write("\n")
 
-    print(f'Wrote to {f.name} successfully!')
+        print(f'Wrote to {f.name} successfully!')
+
+
+# ------------------------------------------------------------------------------------------------
+# EXPORT TO MARKDOWN FILE
+# ------------------------------------------------------------------------------------------------
+
+def export_md(volumeID):
+
+    title = get_book_title(volumeID)
+    author = get_book_author(volumeID)
+
+    filename = safe_filename(f'{title} - {author}.md')
+    with open(filename, 'w', encoding='utf-8') as f:
+
+        f.write(f'# {title}\n')
+        f.write(f'## {author}\n\n')
+        
+        chap_and_hl = map_chapters_to_highlights(volumeID)
+
+        for ch, hl in chap_and_hl.items():
+            f.write("_______________________________________________________________" + "\n")
+            f.write(f'### {ch}\n\n')
+        
+            for h in hl:
+                f.write(f'- {h}\n')
+            f.write("\n")
+        f.write("\n")
+
+        print(f'Wrote to {f.name} successfully!')
+
+
+# ------------------------------------------------------------------------------------------------
+# driver
+# ------------------------------------------------------------------------------------------------
+
+VolumeID_list = df_highlights['VolumeID'].unique().tolist()
+sample_VolumeID = VolumeID_list[4]
+export_md(sample_VolumeID)
+print(f'Successfully called md function')
+export_txt(sample_VolumeID)
+print(f'Successfully called txt function')
+
+
 
