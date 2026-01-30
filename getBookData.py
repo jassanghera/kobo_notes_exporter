@@ -32,58 +32,18 @@ highlights_query = """
 SELECT BookmarkID, ContentID, VolumeID, Text FROM Bookmark;
 """
 
-# make df of books from content table with their ContentIDs, titles, and authors
-def get_book_list():
-    rows = cursor.execute(books_query)
+# general purpose fn to create dataframe from SQL query
+def create_df(query):
+    rows = cursor.execute(query)
     records = rows.fetchall()
     columns = [col[0] for col in rows.description]
     df = pd.DataFrame(records, columns=columns)
     return df
 
-df_books = get_book_list()
-# print("Book List:")
-# print(get_book_list().head())
-# print("\n")
-
-# make df of epub chapters from content table with their ContentIDs, BookIDs, and titles
-def get_epub_chapters():
-    rows = cursor.execute(epub_chapters_query)
-    records = rows.fetchall()
-    columns = [col[0] for col in rows.description]
-    df = pd.DataFrame(records, columns=columns)
-    return df
-
-df_epub_chapters = get_epub_chapters()
-# print("EPUB Chapters:")
-# print(get_epub_chapters().head())
-# print("\n")
-
-# make df of kepub chapters from content table with their ContentIDs, BookIDs, and titles
-def get_kepub_chapters():
-    rows = cursor.execute(kepub_chapters_query)
-    records = rows.fetchall()
-    columns = [col[0] for col in rows.description]
-    df = pd.DataFrame(records, columns=columns)
-    return df
-
-df_kepub_chapters = get_kepub_chapters()
-# print("KEPUB Chapters:")
-# print(get_kepub_chapters().head())
-# print("\n")
-
-
-# make df of highlights from the Bookmark table with their ContentID, VolumeID (=BookID), and Text
-def get_all_highlights():
-    rows = cursor.execute(highlights_query)
-    records = rows.fetchall()
-    columns = [col[0] for col in rows.description]
-    df = pd.DataFrame(records, columns=columns)
-    return df
-
-df_highlights = get_all_highlights()
-# print("All Highlights:")
-# print(get_all_highlights().head())
-# print("\n")
+df_books = create_df(books_query)
+df_epub_chapters = create_df(epub_chapters_query)
+df_kepub_chapters = create_df(kepub_chapters_query)
+df_highlights = create_df(highlights_query)
 
 # ----------------------------------------------------------------------------------
 # PRINTING for testing
