@@ -2,10 +2,6 @@ import sqlite3
 import pandas as pd # pip install pandas
 import re
 
-# connect to the KoboReader sqlite database
-connection = sqlite3.connect('KoboReader.sqlite')
-cursor = connection.cursor()
-
 # ----------------------------------------------------------------------------------
 # SQL QUERIES -> DATAFRAMES
 # ----------------------------------------------------------------------------------
@@ -32,27 +28,40 @@ highlights_query = """
 SELECT BookmarkID, ContentID, VolumeID, Text FROM Bookmark;
 """
 
-# general purpose fn to create dataframe from SQL query
-def create_df(query):
-    rows = cursor.execute(query)
-    records = rows.fetchall()
-    columns = [col[0] for col in rows.description]
-    df = pd.DataFrame(records, columns=columns)
-    return df
+def load_data():
 
-df_books = create_df(books_query)
-df_epub_chapters = create_df(epub_chapters_query)
-df_kepub_chapters = create_df(kepub_chapters_query)
-df_highlights = create_df(highlights_query)
+    with sqlite3.connect('KoboReader.sqlite') as connection:
 
-# --------------------------------------------------------------------------------
-# MATCHING KEPUB CONTENTIDs - helper fn
-# ----------------------------------------------------------------------------------
+        cursor = connection.cursor()
+
+        # general purpose fn to create dataframe from SQL query
+        def create_df(query):
+            rows = cursor.execute(query)
+            records = rows.fetchall()
+            columns = [col[0] for col in rows.description]
+            df = pd.DataFrame(records, columns=columns)
+            return df
+        
+        return {
+            "books": create_df(books_query),
+            "epub": create_df(epub_chapters_query),
+            "kepub": create_df(kepub_chapters_query),
+            "highlights": create_df(highlights_query),
+        }
+
+data = load_data()
+
+df_books = data["books"]
+df_epub_chapters = data["epub"]
+df_kepub_chapters = data["kepub"]
+df_highlights = data["highlights"]
 
 # build a lookup dict for kepub ContentIDs and VolumeIndex
-kepub_id_lookup = dict(
-    zip(df_kepub_chapters['ContentID'], df_kepub_chapters['VolumeIndex'])
-)
+kepub_id_lookup = dict(zip(df_kepub_chapters['ContentID'], df_kepub_chapters['VolumeIndex']))
+
+# ----------------------------------------------------------------------------------
+# MATCHING KEPUB CONTENTIDs - helper fn
+# ----------------------------------------------------------------------------------
 
 # pass in a highlight ContentID, return the VolumeIndex if prefix match kepub ContentID
 def lookup_kepub_index(content_id):
@@ -64,39 +73,45 @@ def lookup_kepub_index(content_id):
 
 # -----------------------------------------------------------------------------------
 # ATTACH KEPUB VOLUMEINDEX TO HIGHLIGHTS (epub as backup)
-# ----------------------------------------------------------------------------------
+# -----------------------------------------------------------------------------------
 
-# add kepub VolumeIndex column to highlights df manually using the lookup function
-df_highlights['VolumeIndex'] = df_highlights['ContentID'].apply(lookup_kepub_index)
+def add_v_idx_to_kepub():
+
+    # add kepub VolumeIndex column to highlights df manually using the lookup function
+    df_highlights['VolumeIndex'] = df_highlights['ContentID'].apply(lookup_kepub_index)
 
 
-# insert epub VolumeIndex as backup where kepub VolumeIndex is missing, consider exact match of ContentID
+    # insert epub VolumeIndex as backup where kepub VolumeIndex is missing, consider exact match of ContentID
     
-rowidx_vidx = {} # (row_index : volume_index), rows from highlight table, vidx from epub chapter VolumeIndex
+    rowidx_vidx = {} # (row_index : volume_index), rows from highlight table, vidx from epub chapter VolumeIndex
+ 
+    for _i, row in df_highlights.iterrows():
+        ContentID = row['ContentID']
+        VolumeIndex = row['VolumeIndex']
+        if pd.isna(VolumeIndex):                                                            # if highlight VolumeIndex is NaN
+            epub_row = df_epub_chapters.loc[df_epub_chapters['ContentID'] == ContentID]     # get epub_chapter row with matching ContentID
+            epub_vidx = epub_row.iloc[0]['VolumeIndex']                                     # get value of epub VolumeIndex
 
-df1 = df_highlights.iterrows()  
-for _i, row in df1:
-    ContentID = row['ContentID']
-    VolumeIndex = row['VolumeIndex']
-    if pd.isna(VolumeIndex):                                                            # if highlight VolumeIndex is NaN
-        epub_row = df_epub_chapters.loc[df_epub_chapters['ContentID'] == ContentID]     # get epub_chapter row with matching ContentID
-        epub_vidx = epub_row.iloc[0]['VolumeIndex']                                     # get value of epub VolumeIndex
+            rowidx_vidx[_i] = epub_vidx    # store epub VolumeIndex in dict with corresponding highlight index
 
-        rowidx_vidx[_i] = epub_vidx    # store epub VolumeIndex in dict with corresponding highlight index
+    # update highlight VolumeIndex column with vidx values from dict at row with index rowidx
 
-# update highlight VolumeIndex column with vidx values from dict at row with index rowidx
+    for idx, val in rowidx_vidx.items():
+        df_highlights.at[idx, 'VolumeIndex'] = val
 
-for idx, val in rowidx_vidx.items():
-    df_highlights.at[idx, 'VolumeIndex'] = val
+    return df_highlights
 
-#----------------------------------------------------------------------------------
+
+
+#------------------------------------------------------------------------------------
 # SORT HIGHLIGHTS BY CHAPTER INDICES
-#----------------------------------------------------------------------------------
+#------------------------------------------------------------------------------------
 
-def sort_highlights(df):
-    return df.sort_values(by=['VolumeID', 'VolumeIndex'])
+def sort_highlights_by_v_idx():
+    highlights_with_v_idx = add_v_idx_to_kepub()
+    return highlights_with_v_idx.sort_values(by=['VolumeID', 'VolumeIndex'])
 
-df_highlights_sorted = sort_highlights(df_highlights)
+
 
 # ----------------------------------------------------------------------------------
 # CHAPTERS & HIGHLIGHTS FOR A GIVEN BOOK
@@ -104,6 +119,7 @@ df_highlights_sorted = sort_highlights(df_highlights)
 
 def map_chapters_to_highlights(volume_id):
 
+    df_highlights_sorted = sort_highlights_by_v_idx()
 
     # get all highlights for the given VolumeID
     book_highlights = df_highlights_sorted[df_highlights_sorted['VolumeID'] == volume_id]
@@ -260,5 +276,7 @@ print(f'Successfully called md function')
 export_txt(sample_VolumeID)
 print(f'Successfully called txt function')
 
+def main():
+    pass
 
 
