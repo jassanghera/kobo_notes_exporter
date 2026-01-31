@@ -4,8 +4,7 @@ from rich import print
 app = typer.Typer(help="This is a really friendly CLI tool :)")
 
 @app.command()
-def hello(
-    name: str = typer.Argument(help="Person to greet")):
+def hello(name: str = typer.Argument(help="Person to greet")):
     """
     say hello to someone
     """
