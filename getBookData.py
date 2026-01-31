@@ -266,17 +266,23 @@ def export_md(volumeID):
 
 
 # ------------------------------------------------------------------------------------------------
-# driver
+# main
 # ------------------------------------------------------------------------------------------------
 
-VolumeID_list = df_highlights['VolumeID'].unique().tolist()
-sample_VolumeID = VolumeID_list[2]
-export_md(sample_VolumeID)
-print(f'Successfully called md function')
-export_txt(sample_VolumeID)
-print(f'Successfully called txt function')
-
 def main():
-    pass
+
+    VolumeID_list = df_highlights['VolumeID'].unique().tolist()
+    sample_VolumeID = VolumeID_list[5]
+
+    export_md(sample_VolumeID)
+    export_txt(sample_VolumeID)
+
+    print("Export complete!")
+
+    
+
+if __name__ == "__main__":
+    main()
+
 
 
