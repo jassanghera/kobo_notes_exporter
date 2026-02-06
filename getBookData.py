@@ -28,9 +28,9 @@ highlights_query = """
 SELECT BookmarkID, ContentID, VolumeID, Text FROM Bookmark;
 """
 
-def load_data():
+def load_data(db):
 
-    with sqlite3.connect('KoboReader.sqlite') as connection:
+    with sqlite3.connect(db) as connection:
 
         cursor = connection.cursor()
 
@@ -49,7 +49,8 @@ def load_data():
             "highlights": create_df(highlights_query),
         }
 
-data = load_data()
+db = 'KoboReader.sqlite'
+data = load_data(db)
 
 df_books = data["books"]
 df_epub_chapters = data["epub"]
@@ -110,7 +111,6 @@ def add_v_idx_to_kepub():
 def sort_highlights_by_v_idx():
     highlights_with_v_idx = add_v_idx_to_kepub()
     return highlights_with_v_idx.sort_values(by=['VolumeID', 'VolumeIndex'])
-
 
 
 # ----------------------------------------------------------------------------------
@@ -185,7 +185,7 @@ def get_chapter_titles(volume_id):
     return []
 
 # -------------------------------------------------------------------------------------------------
-# getters - book title, author
+# getters - book title, author, volumeID
 # -------------------------------------------------------------------------------------------------
 
 def get_book_title(volume_id):
@@ -197,6 +197,33 @@ def get_book_author(volume_id):
     book = df_books[df_books['ContentID'] == volume_id]
     author = book.iloc[0]['Attribution']
     return author
+
+def get_volumeID_from_title(title): # only for highlights 
+        
+    matches = df_books[df_books["Title"].str.lower() == title.lower()]
+
+    if matches.empty:
+        raise ValueError(f"No book found with title: {title}")
+
+    if len(matches) > 1:
+        raise ValueError(f"Multiple books found with title: {title}")
+    
+    return matches.iloc[0]["ContentID"]
+
+def get_books_by_author(author):
+
+    matches = df_books[df_books["Attribution"].str.lower() == author.lower()]
+
+    if matches.empty:
+        return []
+    
+    volume_ids = matches["ContentID"].tolist()
+
+    # keep only books that actually have highlights
+    highlighted_ids = set(df_highlights["VolumeID"])
+
+    return [vid for vid in volume_ids if vid in highlighted_ids]
+
 
 # -------------------------------------------------------------------------------------------------
 # make safe file names - no [\\/*?:"<>|] allowed
@@ -279,7 +306,10 @@ def main():
 
     print("Export complete!")
 
+
+
     
 if __name__ == "__main__":
+
     main()
 
