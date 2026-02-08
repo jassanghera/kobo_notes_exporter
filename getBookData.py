@@ -178,7 +178,7 @@ def get_highlight_counts():
     )
 
     return books_with_highlights[
-        ["Title", "Attribution", "HighlightCount", "LatestHighlight"]
+        ["VolumeID", "Title", "Attribution", "HighlightCount", "LatestHighlight"]
     ]
 
 
@@ -239,6 +239,31 @@ def get_books_by_author(author):
     highlighted_ids = set(df_highlights["VolumeID"])
 
     return [vid for vid in volume_ids if vid in highlighted_ids]
+
+# ------------------------------------------------------------------------------------------------
+# logic for filtering books to be used in CLI commands
+# ------------------------------------------------------------------------------------------------
+
+def get_filtered_books(author=None, title=None, since=None, latest=None):
+
+    books = get_highlight_counts()
+    books = books.sort_values("LatestHighlight", ascending=False)
+
+    
+    if author:
+        books = books[books["Attribution"].str.contains(author, case=False, na=False)]
+
+    if title:
+        books = books[books["Title"].str.contains(title, case=False, na=False)]
+
+    if since:
+        cutoff = pd.Timestamp.now(tz="UTC") - pd.Timedelta(days=since)
+        books = books[books["LatestHighlight"] >= cutoff]
+
+    if latest:
+        books = books.head(latest)
+
+    return books
 
 
 # -------------------------------------------------------------------------------------------------

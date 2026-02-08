@@ -28,11 +28,11 @@ def goodbye(name: str = typer.Argument(help="Person to greet"),
 
 @app.command()
 def books(
-    author: Annotated[Optional[str], typer.Option("--author", "-a", help="Filter by author")] = None,
-    title: Annotated[Optional[str], typer.Option("--title", "-t", help="Filter by title")] = None,
-    since: Annotated[Optional[int], typer.Option("--since", help="Show books updated in last N days")] = None,
-    latest: Annotated[Optional[int], typer.Option("--latest", help="Show top N most recently updated books")] = None
-):
+            author: Annotated[Optional[str], typer.Option("--author", "-a", help="Filter by author")] = None,
+            title: Annotated[Optional[str], typer.Option("--title", "-t", help="Filter by title")] = None,
+            since: Annotated[Optional[int], typer.Option("--since", help="Show books updated in last N days")] = None,
+            latest: Annotated[Optional[int], typer.Option("--latest", help="Show top N most recently updated books")] = None
+        ):
     """
     Show books with highlight counts
     """
@@ -40,19 +40,13 @@ def books(
     books = getBookData.get_highlight_counts()
     books = books.sort_values("LatestHighlight", ascending=False)
 
-    if author:
-        books = books[books["Attribution"].str.contains(author, case=False, na=False)]
+    books = getBookData.get_filtered_books(
+    author=author,
+    title=title,
+    since=since,
+    latest=latest
+    )
 
-    if title:
-        books = books[books["Title"].str.contains(title, case=False, na=False)]
-    
-    if since:
-        cutoff = pd.Timestamp.now(tz="UTC") - pd.Timedelta(days=since)
-        books = books[books["LatestHighlight"] >= cutoff]
-
-    if latest:
-        books = books.sort_values("LatestHighlight", ascending=False).head(latest)
-    
 
     # formatting table for display
     table = Table(title="Books With Highlights")
@@ -74,45 +68,81 @@ def books(
     console.print(table)
     console.print()
 
-
-
 @app.command()
-def export_title(
-    title: str = typer.Argument(help="title of selected book, case insensitive"),
-    txt: Annotated[bool, typer.Option(help="export to txt format")] = False
-    ):
+def export(    
+            author: Annotated[Optional[str], typer.Option("--author", "-a")] = None,
+            title: Annotated[Optional[str], typer.Option("--title", "-t")] = None,
+            since: Annotated[Optional[int], typer.Option("--since")] = None,
+            latest: Annotated[Optional[int], typer.Option("--latest")] = None,
+            txt: Annotated[bool, typer.Option(help="export to txt format")] = False
+        ):
     """
-    export highlights to md for given title, --txt as option
+    Export all books matching filters to markdown
     """
-    book_id = getBookData.get_volumeID_from_title(title)
 
-    if txt:
-        getBookData.export_txt(book_id)
-        print("you chose txt")
-    else:
-        getBookData.export_md(book_id)
-        print(f'Exported {title}!')
+    books = getBookData.get_filtered_books(
+        author=author,
+        title=title,
+        since=since,
+        latest=latest
+    )
 
-@app.command()
-def export_author(
-    author: str = typer.Argument(help="author name of selected book, case insensitive"),
-    txt: Annotated[bool, typer.Option(help="export to txt format")] = False
-    ):
-    """
-    export all highlights from given author, with --txt as option
-    """
-    books = getBookData.get_books_by_author(author)
+    if books.empty:
+        typer.echo("No books matched your filters.")
+        raise typer.Exit()
 
-    if txt:
-        for book_id in books:
-            getBookData.export_txt(book_id)
-            print("you chose txt")
-    else:
-        for book_id in books:
-            getBookData.export_md(book_id)
-            title = getBookData.get_book_title(book_id)
-            author = getBookData.get_book_author(book_id)
-            print(f'Exported {title} by {author}!')
+    for _, row in books.iterrows():
+        volume_id = row["VolumeID"]
+
+        if txt:
+            typer.echo(f"Exporting {row['Title']} as txt...")
+            getBookData.export_txt(volume_id)
+        else:
+            typer.echo(f"Exporting {row['Title']}...")
+            getBookData.export_md(volume_id)
+
+    typer.echo("Export complete.")
+
+
+
+# @app.command()
+# def export_title(
+#     title: str = typer.Argument(help="title of selected book, case insensitive"),
+#     txt: Annotated[bool, typer.Option(help="export to txt format")] = False
+#     ):
+#     """
+#     export highlights to md for given title, --txt as option
+#     """
+#     book_id = getBookData.get_volumeID_from_title(title)
+
+#     if txt:
+#         getBookData.export_txt(book_id)
+#         print("you chose txt")
+#     else:
+#         getBookData.export_md(book_id)
+#         print(f'Exported {title}!')
+
+# @app.command()
+# def export_author(
+#     author: str = typer.Argument(help="author name of selected book, case insensitive"),
+#     txt: Annotated[bool, typer.Option(help="export to txt format")] = False
+#     ):
+#     """
+#     export all highlights from given author, with --txt as option
+#     """
+#     books = getBookData.get_books_by_author(author)
+
+#     if txt:
+#         for book_id in books:
+#             getBookData.export_txt(book_id)
+#             print("you chose txt")
+#     else:
+#         for book_id in books:
+#             getBookData.export_md(book_id)
+#             title = getBookData.get_book_title(book_id)
+#             author = getBookData.get_book_author(book_id)
+#             print(f'Exported {title} by {author}!')
+
 
 @app.command()
 def export_all(
