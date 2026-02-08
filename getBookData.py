@@ -25,7 +25,7 @@ WHERE ContentType = '899';
 """
 
 highlights_query = """
-SELECT BookmarkID, ContentID, VolumeID, Text FROM Bookmark;
+SELECT BookmarkID, ContentID, VolumeID, Text, DateModified FROM Bookmark;
 """
 
 def load_data(db):
@@ -56,6 +56,9 @@ df_books = data["books"]
 df_epub_chapters = data["epub"]
 df_kepub_chapters = data["kepub"]
 df_highlights = data["highlights"]
+
+df_highlights["DateModified"] = pd.to_datetime(df_highlights["DateModified"])
+
 
 # build a lookup dict for kepub ContentIDs and VolumeIndex
 kepub_id_lookup = dict(zip(df_kepub_chapters['ContentID'], df_kepub_chapters['VolumeIndex']))
@@ -150,21 +153,34 @@ def map_chapters_to_highlights(volume_id):
 
     return chapters_to_highlights
 
-# --------------------------------------------------------------------------------------------------
-# GET LIST OF HIGHLIGHTED BOOKS WITH COUNT OF HIGHLIGHTS FOR EACH
-# --------------------------------------------------------------------------------------------------
+# ---------------------------------------------------------------------------------------------------
+# highlight counts + date modified
+# ---------------------------------------------------------------------------------------------------
 
 def get_highlight_counts():
-    highlight_counts = df_highlights['VolumeID'].value_counts().reset_index() # value_counts gives a Series, reset_index to convert to DataFrame
+    # group highlights by VolumeID
+    grouped = (
+        df_highlights
+        .groupby("VolumeID")
+        .agg(
+            HighlightCount=("VolumeID", "count"),
+            LatestHighlight=("DateModified", "max")
+        )
+        .reset_index()
+    )
 
-    # rename columns
-    highlight_counts.columns = ['VolumeID', 'HighlightCount']
+    # merge with books table
+    books_with_highlights = grouped.merge(
+        df_books,
+        left_on="VolumeID",
+        right_on="ContentID",
+        how="left"
+    )
 
-    # merge with book data to get titles and authors
-    books_with_highlights = highlight_counts.merge(df_books, left_on='VolumeID', right_on='ContentID', how='left')
+    return books_with_highlights[
+        ["Title", "Attribution", "HighlightCount", "LatestHighlight"]
+    ]
 
-    # select relevant columns
-    return books_with_highlights[['Title', 'Attribution', 'HighlightCount']]
 
 
 # # --------------------------------------------------------------------------------------------------
