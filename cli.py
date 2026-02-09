@@ -5,9 +5,12 @@ from rich.console import Console
 from typing import Annotated, Optional 
 import getBookData
 import pandas as pd
+import json
+from pathlib import Path
 
+CACHE_FILE = Path(".kobo_last_query.json")
 console = Console()
-app = typer.Typer(help="This is a really friendly CLI tool :)")
+app = typer.Typer(help="This is a really friendly CLI tool to help you export your ereader highlights :)")
 
 
 @app.command()
@@ -26,6 +29,19 @@ def goodbye(name: str = typer.Argument(help="Person to greet"),
     print(f"[red]bye bye {name}[/red]")
     print(f"your iq is {iq}")
 
+
+def write_cache(volume_ids: list[str]):
+    with open(CACHE_FILE, "w", encoding="utf-8") as f:
+        json.dump(volume_ids, f)
+
+def read_cache() -> list[str]:
+    try:
+        with open(CACHE_FILE, "r", encoding="utf-8") as f:
+            return json.load(f)
+    except (FileNotFoundError, json.JSONDecodeError):
+        return []
+
+
 @app.command()
 def books(
             author: Annotated[Optional[str], typer.Option("--author", "-a", help="Filter by author")] = None,
@@ -33,6 +49,7 @@ def books(
             since: Annotated[Optional[int], typer.Option("--since", help="Show books updated in last N days")] = None,
             latest: Annotated[Optional[int], typer.Option("--latest", help="Show top N most recently updated books")] = None,
             limit: Annotated[Optional[int], typer.Option("--limit", "-l", help="Limit number of results shown")] = 10,
+            all: Annotated[bool, typer.Option(help="show all books")] = False
         ):
     """
     Show books with highlight counts
@@ -48,10 +65,11 @@ def books(
     latest=latest
     )
 
-    if limit and limit > 0:
+    if all:
+        pass
+    elif limit:
         books = books.head(limit)
-
-
+    
     # formatting table for display
     table = Table(title="Books With Highlights")
 
@@ -72,6 +90,12 @@ def books(
     console.print(table)
     console.print()
 
+    # store book_ids in cache
+    visible_volume_ids = books["VolumeID"].tolist()
+    write_cache(visible_volume_ids)
+
+
+
 @app.command()
 def export(    
             author: Annotated[Optional[str], typer.Option("--author", "-a")] = None,
@@ -81,71 +105,49 @@ def export(
             txt: Annotated[bool, typer.Option(help="export to txt format")] = False
         ):
     """
-    Export all books matching filters to markdown
+    Export books matching filters to markdown file
     """
 
-    books = getBookData.get_filtered_books(
-        author=author,
-        title=title,
-        since=since,
-        latest=latest
-    )
+    filters_used = any([author, title, since, latest])
 
-    if books.empty:
-        typer.echo("No books matched your filters.")
-        raise typer.Exit()
+    # CASE 1: filter provided --> compute fresh selection
+    if filters_used:
+        books = getBookData.get_filtered_books(
+            author=author,
+            title=title,
+            since=since,
+            latest=latest
+        )
 
-    for _, row in books.iterrows():
-        volume_id = row["VolumeID"]
+        if books.empty:
+            typer.echo("No books matched your filters.")
+            raise typer.Exit()
+        
+        books = books["VolumeID"].tolist()
+
+    # CASE 2: no filters provided --> use cache
+    else: 
+        books = read_cache()
+
+        if not books:
+            typer.echo("No books selected")
+            typer.echo("Run 'books' first or provide filters")
+            raise typer.Exit()
+    
+    # export selected books
+
+    for book_id in books:
 
         if txt:
-            typer.echo(f"Exporting {row['Title']} as txt...")
-            getBookData.export_txt(volume_id)
+            typer.echo(f"Exporting {book_id} as txt...")
+            getBookData.export_txt(book_id)
         else:
-            typer.echo(f"Exporting {row['Title']}...")
-            getBookData.export_md(volume_id)
+            typer.echo(f"Exporting {book_id}...")
+            getBookData.export_md(book_id)
+
+    typer.echo(f"Exported {len(books)} book(s).")
 
     typer.echo("Export complete.")
-
-
-
-# @app.command()
-# def export_title(
-#     title: str = typer.Argument(help="title of selected book, case insensitive"),
-#     txt: Annotated[bool, typer.Option(help="export to txt format")] = False
-#     ):
-#     """
-#     export highlights to md for given title, --txt as option
-#     """
-#     book_id = getBookData.get_volumeID_from_title(title)
-
-#     if txt:
-#         getBookData.export_txt(book_id)
-#         print("you chose txt")
-#     else:
-#         getBookData.export_md(book_id)
-#         print(f'Exported {title}!')
-
-# @app.command()
-# def export_author(
-#     author: str = typer.Argument(help="author name of selected book, case insensitive"),
-#     txt: Annotated[bool, typer.Option(help="export to txt format")] = False
-#     ):
-#     """
-#     export all highlights from given author, with --txt as option
-#     """
-#     books = getBookData.get_books_by_author(author)
-
-#     if txt:
-#         for book_id in books:
-#             getBookData.export_txt(book_id)
-#             print("you chose txt")
-#     else:
-#         for book_id in books:
-#             getBookData.export_md(book_id)
-#             title = getBookData.get_book_title(book_id)
-#             author = getBookData.get_book_author(book_id)
-#             print(f'Exported {title} by {author}!')
 
 
 @app.command()
