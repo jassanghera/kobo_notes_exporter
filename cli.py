@@ -31,7 +31,8 @@ def books(
             author: Annotated[Optional[str], typer.Option("--author", "-a", help="Filter by author")] = None,
             title: Annotated[Optional[str], typer.Option("--title", "-t", help="Filter by title")] = None,
             since: Annotated[Optional[int], typer.Option("--since", help="Show books updated in last N days")] = None,
-            latest: Annotated[Optional[int], typer.Option("--latest", help="Show top N most recently updated books")] = None
+            latest: Annotated[Optional[int], typer.Option("--latest", help="Show top N most recently updated books")] = None,
+            limit: Annotated[Optional[int], typer.Option("--limit", "-l", help="Limit number of results shown")] = 10,
         ):
     """
     Show books with highlight counts
@@ -46,6 +47,9 @@ def books(
     since=since,
     latest=latest
     )
+
+    if limit and limit > 0:
+        books = books.head(limit)
 
 
     # formatting table for display
