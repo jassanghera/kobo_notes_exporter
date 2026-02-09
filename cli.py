@@ -1,11 +1,11 @@
 import typer
+import getBookData
+import pandas as pd
+import json
 from rich import print
 from rich.table import Table
 from rich.console import Console
 from typing import Annotated, Optional 
-import getBookData
-import pandas as pd
-import json
 from pathlib import Path
 
 CACHE_FILE = Path(".kobo_last_query.json")
@@ -29,6 +29,15 @@ def goodbye(name: str = typer.Argument(help="Person to greet"),
     print(f"[red]bye bye {name}[/red]")
     print(f"your iq is {iq}")
 
+def resolve_export_path(output_dir: Optional[str]) -> Path:
+    if output_dir:
+        path = Path(output_dir)
+    else:
+        path = Path.cwd() / "exports"
+
+    path.mkdir(parents=True, exist_ok=True)
+    return path
+
 
 def write_cache(volume_ids: list[str]):
     with open(CACHE_FILE, "w", encoding="utf-8") as f:
@@ -40,6 +49,9 @@ def read_cache() -> list[str]:
             return json.load(f)
     except (FileNotFoundError, json.JSONDecodeError):
         return []
+
+def clear_cache():
+    write_cache([])
 
 
 @app.command()
@@ -102,13 +114,15 @@ def export(
             title: Annotated[Optional[str], typer.Option("--title", "-t")] = None,
             since: Annotated[Optional[int], typer.Option("--since")] = None,
             latest: Annotated[Optional[int], typer.Option("--latest")] = None,
-            txt: Annotated[bool, typer.Option(help="export to txt format")] = False
+            txt: Annotated[bool, typer.Option(help="export to txt format")] = False,
+            output_dir: Annotated[Optional[str],typer.Option("--output-dir", "-o", help="Directory to export files into")] = None
         ):
     """
     Export books matching filters to markdown file
     """
 
     filters_used = any([author, title, since, latest])
+    used_cache = False
 
     # CASE 1: filter provided --> compute fresh selection
     if filters_used:
@@ -133,27 +147,37 @@ def export(
             typer.echo("No books selected")
             typer.echo("Run 'books' first or provide filters")
             raise typer.Exit()
-    
-    # export selected books
+        
+        used_cache = True
 
+    # specify export path
+    export_path = resolve_export_path(output_dir)
+
+    # export selected books
     for book_id in books:
 
         if txt:
             typer.echo(f"Exporting {book_id} as txt...")
-            getBookData.export_txt(book_id)
+            getBookData.export_txt(book_id, export_path)
         else:
             typer.echo(f"Exporting {book_id}...")
-            getBookData.export_md(book_id)
+            getBookData.export_md(book_id, export_path)
 
     typer.echo(f"Exported {len(books)} book(s).")
 
     typer.echo("Export complete.")
 
+    # clear cache if used
+    if used_cache:
+        clear_cache()
+        typer.echo("Selection cleared.")
+
 
 @app.command()
 def export_all(
     force: Annotated[bool, typer.Option(prompt="Are you sure you want to export all?")],
-    txt: Annotated[bool, typer.Option(help="export to txt format")] = False
+    txt: Annotated[bool, typer.Option(help="export to txt format")] = False,
+    output_dir: Annotated[Optional[str],typer.Option("--output-dir", "-o", help="Directory to export files into")] = None
     ):
     """
     export all highlights to md, with --txt as option
@@ -161,13 +185,17 @@ def export_all(
     if force:
         books = getBookData.df_highlights['VolumeID'].unique().tolist()
 
+        # specify export path
+        export_path = resolve_export_path(output_dir)
+
+
         if txt:
             for book_id in books:
-                getBookData.export_txt(book_id)
+                getBookData.export_txt(book_id, export_path)
                 print('you chose txt')
         else:
             for book_id in books:
-                getBookData.export_md(book_id)
+                getBookData.export_md(book_id, export_path)
                 title = getBookData.get_book_title(book_id)
                 author = getBookData.get_book_author(book_id)
                 print(f'Exported {title} by {author}!')

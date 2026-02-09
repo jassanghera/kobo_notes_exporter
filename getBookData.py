@@ -270,22 +270,23 @@ def get_filtered_books(author=None, title=None, since=None, latest=None):
 # make safe file names - no [\\/*?:"<>|] allowed
 # -------------------------------------------------------------------------------------------------
 
-def safe_filename(filename):
-    return re.sub(r'[\\/*?:"<>|]', "", filename)
+def safe_filename(name: str) -> str:
+    return re.sub(r'[<>:"/\\|?*]', "", name)
 
 
 # -------------------------------------------------------------------------------------------------
 # EXPORT TO TXT FILE
 # -------------------------------------------------------------------------------------------------
 
-def export_txt(volumeID):
+def export_txt(volumeID, output_dir):
 
     title = get_book_title(volumeID)
     author = get_book_author(volumeID)
 
     filename = safe_filename(f'{title} - {author}.txt')
+    filepath = output_dir / f"{filename}"
 
-    with open(filename, 'w', encoding='utf-8') as f:
+    with open(filepath, 'w', encoding='utf-8') as f:
 
         f.write(title + "\n")
         f.write(author + "\n\n")
@@ -308,13 +309,15 @@ def export_txt(volumeID):
 # EXPORT TO MARKDOWN FILE
 # ------------------------------------------------------------------------------------------------
 
-def export_md(volumeID):
+def export_md(volumeID, output_dir):
 
     title = get_book_title(volumeID)
     author = get_book_author(volumeID)
 
     filename = safe_filename(f'{title} - {author}.md')
-    with open(filename, 'w', encoding='utf-8') as f:
+    filepath = output_dir / f"{filename}"
+
+    with open(filepath, 'w', encoding='utf-8') as f:
 
         f.write(f'# {title}\n')
         f.write(f'## {author}\n\n')
