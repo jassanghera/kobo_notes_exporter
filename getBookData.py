@@ -1,6 +1,8 @@
 import sqlite3
 import pandas as pd # pip install pandas
 import re
+import string
+from pathlib import Path
 
 # ----------------------------------------------------------------------------------
 # SQL QUERIES -> DATAFRAMES
@@ -27,6 +29,27 @@ WHERE ContentType = '899';
 highlights_query = """
 SELECT BookmarkID, ContentID, VolumeID, Text, DateModified FROM Bookmark;
 """
+
+def find_kobo_db():
+
+    print("Scanning drives...")
+
+    for letter in string.ascii_uppercase:
+        drive = Path(f"{letter}:/")
+
+        if drive.exists():
+            print(f"Found drive: {drive}")
+
+        if drive.exists():
+            db_path = drive / ".kobo" / "KoboReader.sqlite"
+            print(f"Checking: {db_path}")
+
+            if db_path.exists():
+                print("Database found!")
+                return db_path
+            
+    print("Database found!")
+    return None
 
 def load_data(db):
 
@@ -302,7 +325,7 @@ def export_txt(volumeID, output_dir):
             f.write("\n")
         f.write("\n")
 
-        print(f'Wrote to {f.name} successfully!')
+        # print(f'Wrote to {f.name} successfully!')
 
 
 # ------------------------------------------------------------------------------------------------
@@ -333,7 +356,7 @@ def export_md(volumeID, output_dir):
             f.write("\n")
         f.write("\n")
 
-        print(f'Wrote to {f.name} successfully!')
+        # print(f'Wrote to {f.name} successfully!')
 
 
 # ------------------------------------------------------------------------------------------------

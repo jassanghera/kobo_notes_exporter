@@ -5,6 +5,7 @@ import json
 from rich import print
 from rich.table import Table
 from rich.console import Console
+from rich.progress import Progress
 from typing import Annotated, Optional 
 from pathlib import Path
 
@@ -21,13 +22,18 @@ def hello(name: str = typer.Argument(help="Person to greet")):
     print(f"[green]hello {name}[/green] :smile:")
 
 @app.command()
-def goodbye(name: str = typer.Argument(help="Person to greet"),
-            iq : int = typer.Argument(help="Person's IQ")):
+def detect():
     """
-    say bye bye to someone and tell them their iq
+    detect attached kobo device and locate database
     """
-    print(f"[red]bye bye {name}[/red]")
-    print(f"your iq is {iq}")
+
+    db_path = getBookData.find_kobo_db()
+
+    if not db_path:
+        print(f"[red]No Kobo device detected[/red]")
+        raise typer.Exit(code=1)
+
+    print(f"[green]Kobo database found at:[/green] {db_path}")
 
 def resolve_export_path(output_dir: Optional[str]) -> Path:
     if output_dir:
@@ -188,17 +194,41 @@ def export_all(
         # specify export path
         export_path = resolve_export_path(output_dir)
 
+        # with Progress() as progress:
 
-        if txt:
+        #     task = progress.add_task("Exporting books...", total=len(books))
+        #     if txt:
+        #         for book_id in books:
+        #             getBookData.export_txt(book_id, export_path)
+        #             print('you chose txt')
+        #             progress.advance(task)
+        #     else:
+        #         for book_id in books:
+        #             getBookData.export_md(book_id, export_path)
+        #             title = getBookData.get_book_title(book_id)
+        #             author = getBookData.get_book_author(book_id)
+        #             print(f'Exported {title} by {author}!')
+        #             progress.advance(task)
+
+        with Progress() as progress:
+            task = progress.add_task("Exporting books...", total=len(books))
+
             for book_id in books:
-                getBookData.export_txt(book_id, export_path)
-                print('you chose txt')
-        else:
-            for book_id in books:
-                getBookData.export_md(book_id, export_path)
                 title = getBookData.get_book_title(book_id)
-                author = getBookData.get_book_author(book_id)
-                print(f'Exported {title} by {author}!')
+
+                progress.update(task, description=f"Exporting [cyan]{title}[/cyan]")
+
+                if txt:
+                    getBookData.export_txt(book_id, export_path)
+                else:
+                    getBookData.export_md(book_id, export_path)
+
+                progress.advance(task)
+
+        console.print("\n[bold green]✔ Export complete.[/bold green]\n")
+
+        
+        
     else:
         print("Operation cancelled")
 
