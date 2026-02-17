@@ -1,91 +1,41 @@
-import sqlite3
+import core.database as database
 import pandas as pd
-import re
-import string
-from pathlib import Path
-from core.database import load_data
 
-# ----------------------------------------------------------------------------------
-# SQL QUERIES -> DATAFRAMES
-# ----------------------------------------------------------------------------------
 
-books_query = """
-SELECT Title, Attribution, ContentID
-FROM content
-WHERE ContentType = '6';
-"""
+# db = 'KoboReader.sqlite'
+# data = database.load_data()
 
-epub_chapters_query = """
-SELECT Title, ContentID, BookID, VolumeIndex
-FROM content
-WHERE ContentType = '9';
-"""
+# df_books = data["books"]
+# df_epub_chapters = data["epub"]
+# df_kepub_chapters = data["kepub"]
+# df_highlights = data["highlights"]
 
-kepub_chapters_query = """
-SELECT Title, ContentID, BookID, VolumeIndex
-FROM content
-WHERE ContentType = '899';
-"""
+# df_highlights["DateModified"] = pd.to_datetime(df_highlights["DateModified"])
 
-highlights_query = """
-SELECT BookmarkID, ContentID, VolumeID, Text, DateModified FROM Bookmark;
-"""
+# lazy loading of dataframes
+df_books = None
+df_epub_chapters = None
+df_kepub_chapters = None
+df_highlights = None
+kepub_id_lookup = None
 
-def find_kobo_db():
+def _ensure_loaded():
+    global df_books, df_epub_chapters, df_kepub_chapters, df_highlights, kepub_id_lookup
 
-    print("Scanning drives...")
+    if df_books is None:
+        data = database.load_data()
+        df_books = data["books"]
+        df_epub_chapters = data["epub"]
+        df_kepub_chapters = data["kepub"]
+        df_highlights = data["highlights"]
 
-    for letter in string.ascii_uppercase:
-        drive = Path(f"{letter}:/")
+        df_highlights["DateModified"] = pd.to_datetime(df_highlights["DateModified"])
 
-        if drive.exists():
-            print(f"Found drive: {drive}")
-
-        if drive.exists():
-            db_path = drive / ".kobo" / "KoboReader.sqlite"
-            print(f"Checking: {db_path}")
-
-            if db_path.exists():
-                print("Database found!")
-                return db_path
-            
-    print("Database found!")
-    return None
-
-def load_data(db):
-
-    with sqlite3.connect(db) as connection:
-
-        cursor = connection.cursor()
-
-        # general purpose fn to create dataframe from SQL query
-        def create_df(query):
-            rows = cursor.execute(query)
-            records = rows.fetchall()
-            columns = [col[0] for col in rows.description]
-            df = pd.DataFrame(records, columns=columns)
-            return df
-        
-        return {
-            "books": create_df(books_query),
-            "epub": create_df(epub_chapters_query),
-            "kepub": create_df(kepub_chapters_query),
-            "highlights": create_df(highlights_query),
-        }
-
-db = 'KoboReader.sqlite'
-data = load_data(db)
-
-df_books = data["books"]
-df_epub_chapters = data["epub"]
-df_kepub_chapters = data["kepub"]
-df_highlights = data["highlights"]
-
-df_highlights["DateModified"] = pd.to_datetime(df_highlights["DateModified"])
+        kepub_id_lookup = dict(zip(df_kepub_chapters['ContentID'], df_kepub_chapters['VolumeIndex']))
 
 
 # build a lookup dict for kepub ContentIDs and VolumeIndex
-kepub_id_lookup = dict(zip(df_kepub_chapters['ContentID'], df_kepub_chapters['VolumeIndex']))
+# kepub_id_lookup = dict(zip(df_kepub_chapters['ContentID'], df_kepub_chapters['VolumeIndex']))
 
 # ----------------------------------------------------------------------------------
 # MATCHING KEPUB CONTENTIDs - helper fn
@@ -93,6 +43,9 @@ kepub_id_lookup = dict(zip(df_kepub_chapters['ContentID'], df_kepub_chapters['Vo
 
 # pass in a highlight ContentID, return the VolumeIndex if prefix match kepub ContentID
 def lookup_kepub_index(content_id):
+    _ensure_loaded()
+
+
 
     for ch_id, vol_idx in kepub_id_lookup.items():
         if ch_id.startswith(content_id):
@@ -104,6 +57,7 @@ def lookup_kepub_index(content_id):
 # -----------------------------------------------------------------------------------
 
 def add_v_idx_to_kepub():
+    _ensure_loaded()
 
     # add kepub VolumeIndex column to highlights df manually using the lookup function
     df_highlights['VolumeIndex'] = df_highlights['ContentID'].apply(lookup_kepub_index)
@@ -136,6 +90,7 @@ def add_v_idx_to_kepub():
 #------------------------------------------------------------------------------------
 
 def sort_highlights_by_v_idx():
+    _ensure_loaded()
     highlights_with_v_idx = add_v_idx_to_kepub()
     return highlights_with_v_idx.sort_values(by=['VolumeID', 'VolumeIndex'])
 
@@ -145,6 +100,7 @@ def sort_highlights_by_v_idx():
 # ----------------------------------------------------------------------------------
 
 def map_chapters_to_highlights(volume_id):
+    _ensure_loaded()
 
     df_highlights_sorted = sort_highlights_by_v_idx()
 
@@ -182,6 +138,9 @@ def map_chapters_to_highlights(volume_id):
 # ---------------------------------------------------------------------------------------------------
 
 def get_highlight_counts():
+    _ensure_loaded()
+
+
     # group highlights by VolumeID
     grouped = (
         df_highlights
@@ -212,6 +171,8 @@ def get_highlight_counts():
 # # --------------------------------------------------------------------------------------------------
 
 def get_chapter_titles(volume_id):
+    _ensure_loaded()
+
     # try kepub chapters first
     kepub_chapters = df_kepub_chapters[df_kepub_chapters['BookID'] == volume_id].sort_values('VolumeIndex')
     if not kepub_chapters.empty:
@@ -229,16 +190,19 @@ def get_chapter_titles(volume_id):
 # -------------------------------------------------------------------------------------------------
 
 def get_book_title(volume_id):
+    _ensure_loaded()
     book = df_books[df_books['ContentID'] == volume_id]
     title = book.iloc[0]['Title']
     return title
 
 def get_book_author(volume_id):
+    _ensure_loaded()
     book = df_books[df_books['ContentID'] == volume_id]
     author = book.iloc[0]['Attribution']
     return author
 
 def get_volumeID_from_title(title): # only for highlights 
+    _ensure_loaded()
         
     matches = df_books[df_books["Title"].str.lower() == title.lower()]
 
@@ -251,6 +215,7 @@ def get_volumeID_from_title(title): # only for highlights
     return matches.iloc[0]["ContentID"]
 
 def get_books_by_author(author):
+    _ensure_loaded()
 
     matches = df_books[df_books["Attribution"].str.lower() == author.lower()]
 
@@ -269,6 +234,7 @@ def get_books_by_author(author):
 # ------------------------------------------------------------------------------------------------
 
 def get_filtered_books(author=None, title=None, since=None, latest=None):
+    _ensure_loaded()   
 
     books = get_highlight_counts()
     books = books.sort_values("LatestHighlight", ascending=False)
@@ -289,97 +255,6 @@ def get_filtered_books(author=None, title=None, since=None, latest=None):
 
     return books
 
-
-# -------------------------------------------------------------------------------------------------
-# make safe file names - no [\\/*?:"<>|] allowed
-# -------------------------------------------------------------------------------------------------
-
-def safe_filename(name: str) -> str:
-    return re.sub(r'[<>:"/\\|?*]', "", name)
-
-
-# -------------------------------------------------------------------------------------------------
-# EXPORT TO TXT FILE
-# -------------------------------------------------------------------------------------------------
-
-def export_txt(volumeID, output_dir):
-
-    title = get_book_title(volumeID)
-    author = get_book_author(volumeID)
-
-    filename = safe_filename(f'{title} - {author}.txt')
-    filepath = output_dir / f"{filename}"
-
-    with open(filepath, 'w', encoding='utf-8') as f:
-
-        f.write(title + "\n")
-        f.write(author + "\n\n")
-        
-        chap_and_hl = map_chapters_to_highlights(volumeID)
-
-        for ch, hl in chap_and_hl.items():
-            f.write("_______________________________________________________________" + "\n")
-            f.write(f'Chapter: {ch}' + '\n\n')
-        
-            for h in hl:
-                f.write(f'- {h}' + '\n')
-            f.write("\n")
-        f.write("\n")
-
-        # print(f'Wrote to {f.name} successfully!')
-
-
-# ------------------------------------------------------------------------------------------------
-# EXPORT TO MARKDOWN FILE
-# ------------------------------------------------------------------------------------------------
-
-def export_md(volumeID, output_dir):
-
-    title = get_book_title(volumeID)
-    author = get_book_author(volumeID)
-
-    filename = safe_filename(f'{title} - {author}.md')
-    filepath = output_dir / f"{filename}"
-
-    with open(filepath, 'w', encoding='utf-8') as f:
-
-        f.write(f'# {title}\n')
-        f.write(f'## {author}\n\n')
-        
-        chap_and_hl = map_chapters_to_highlights(volumeID)
-
-        for ch, hl in chap_and_hl.items():
-            f.write("_______________________________________________________________" + "\n")
-            f.write(f'### {ch}\n\n')
-        
-            for h in hl:
-                f.write(f'- {h}\n')
-            f.write("\n")
-        f.write("\n")
-
-        # print(f'Wrote to {f.name} successfully!')
-
-
-# ------------------------------------------------------------------------------------------------
-# main
-# ------------------------------------------------------------------------------------------------
-
-def main():
-
-    VolumeID_list = df_highlights['VolumeID'].unique().tolist()
-    sample_VolumeID = VolumeID_list[1]
-    sample_output_dir = Path("exports")
-
-
-    export_md(sample_VolumeID, sample_output_dir)
-    export_txt(sample_VolumeID, sample_output_dir)
-
-    print("Export complete!")
-
-
-
-    
-if __name__ == "__main__":
-
-    main()
-
+def get_df_highlights():
+    _ensure_loaded()
+    return df_highlights

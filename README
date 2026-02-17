@@ -1,0 +1,152 @@
+# 📚 Kobo Notes Exporter
+
+A Python command-line application that extracts highlights from a Kobo eReader and exports them to structured Markdown or TXT files.
+
+This tool reads directly from the Kobo device’s internal SQLite database (`KoboReader.sqlite`), processes highlight data, and generates clean, readable note exports.
+
+---
+
+## 🚀 Features
+
+* Automatic detection of a connected Kobo device
+* Automatic discovery of `KoboReader.sqlite`
+* Local database copy for safe processing
+* Export highlights to:
+
+  * Markdown (`.md`)
+  * Plain text (`.txt`)
+* Filter exports by:
+
+  * Author
+  * Title
+  * Recency
+* Export all highlights with confirmation prompt
+* Automatic export directory creation
+* Progress bar visualization in terminal
+* Safe filename sanitization
+
+---
+
+## 🛠 Tech Stack
+
+* Python 3
+* SQLite
+* Pandas
+* Typer (CLI framework)
+* Rich (terminal formatting & progress bars)
+* pathlib
+
+---
+
+## 📂 Project Structure
+
+```
+cli.py              # CLI commands and user interaction
+getBookData.py      # Database queries and export logic
+```
+
+The project separates command-line logic from database and export functionality to keep the code modular and maintainable.
+
+---
+
+## 🔍 How It Works
+
+1. Detects a connected Kobo device by scanning mounted drives.
+2. Locates the `.kobo/KoboReader.sqlite` database file.
+3. Copies the database locally to prevent issues if the device disconnects.
+4. Queries highlight and metadata tables.
+5. Formats and exports highlights to the selected output format.
+
+---
+
+## 📦 Installation
+
+Clone the repository:
+
+```bash
+git clone <your-repo-url>
+cd kobo_notes_exporter
+```
+
+Install dependencies:
+
+```bash
+pip install -r requirements.txt
+```
+
+---
+
+## ▶ Usage
+
+Detect a connected Kobo:
+
+```bash
+python cli.py detect
+```
+
+List books with highlights:
+
+```bash
+python cli.py books
+```
+
+Export selected highlights:
+
+```bash
+python cli.py export
+```
+
+Export all highlights (confirmation required):
+
+```bash
+python cli.py export-all
+```
+
+Specify output directory:
+
+```bash
+python cli.py export-all --output-dir ./exports
+```
+
+Export as plain text:
+
+```bash
+python cli.py export-all --txt
+```
+
+---
+
+## 📁 Output
+
+By default, exported files are written to:
+
+```
+./exports/
+```
+
+Each file is named:
+
+```
+<Book Title> - <Author>.md
+```
+
+---
+
+## ⚠ Notes
+
+* The Kobo device must be connected and mounted as a drive.
+* The application reads directly from the device database.
+* A local copy of the database is created during processing.
+
+---
+
+## 🔮 Future Improvements
+
+* Unit test coverage
+* Packaging for pip installation
+* GUI interface
+* Enhanced filtering options
+
+---
+
+
