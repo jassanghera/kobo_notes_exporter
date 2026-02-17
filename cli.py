@@ -1,5 +1,5 @@
 import typer
-import getBookData
+# import getBookData
 import pandas as pd
 import json
 from rich import print
@@ -8,32 +8,19 @@ from rich.console import Console
 from rich.progress import Progress
 from typing import Annotated, Optional 
 from pathlib import Path
+import core.device as device
+import core.sync_db as sync_db
+# import core.database as database
+import core.parser as parser
+import core.exporter as exporter
 
 CACHE_FILE = Path(".kobo_last_query.json")
 console = Console()
 app = typer.Typer(help="This is a really friendly CLI tool to help you export your ereader highlights :)")
 
-
-@app.command()
-def hello(name: str = typer.Argument(help="Person to greet")):
-    """
-    say hello to someone
-    """
-    print(f"[green]hello {name}[/green] :smile:")
-
-@app.command()
-def detect():
-    """
-    detect attached kobo device and locate database
-    """
-
-    db_path = getBookData.find_kobo_db()
-
-    if not db_path:
-        print(f"[red]No Kobo device detected[/red]")
-        raise typer.Exit(code=1)
-
-    print(f"[green]Kobo database found at:[/green] {db_path}")
+# --------------------------------------------------------------------------
+# HELPER FUNCTIONS
+# --------------------------------------------------------------------------
 
 def resolve_export_path(output_dir: Optional[str]) -> Path:
     if output_dir:
@@ -59,6 +46,48 @@ def read_cache() -> list[str]:
 def clear_cache():
     write_cache([])
 
+# --------------------------------------------------------------------------
+# COMMANDS
+# --------------------------------------------------------------------------
+
+
+@app.command()
+def hello(name: str = typer.Argument(help="Person to greet")):
+    """
+    say hello to someone
+    """
+    print(f"[green]hello {name}[/green] :smile:")
+
+@app.command()
+def detect():
+    """
+    detect attached kobo device and locate database
+    """
+
+    db_path = device.find_kobo_db()
+
+    if not db_path:
+        print(f"[red]No Kobo device detected[/red]")
+        raise typer.Exit(code=1)
+
+    print(f"[green]Kobo database found at:[/green] {db_path}")   
+
+@app.command()
+def sync():
+    """
+    Sync Kobo database locally 
+    """
+    print(f"Looking for Kobo device...")
+    db_path = device.find_kobo_db()
+
+    if not db_path:
+        print(f"[red]No Kobo device detected. Please connect your device and try again.[/red]")
+        return
+
+    metadata = sync_db.perform_sync(db_path)
+    print(f"[green]Sync complete![/green]")
+    print(f"Last sync: {metadata['last_sync']}") 
+
 
 @app.command()
 def books(
@@ -73,10 +102,12 @@ def books(
     Show books with highlight counts
     """
 
-    books = getBookData.get_highlight_counts()
+    sync_db.ensure_local_db()
+
+    books = parser.get_highlight_counts()
     books = books.sort_values("LatestHighlight", ascending=False)
 
-    books = getBookData.get_filtered_books(
+    books = parser.get_filtered_books(
     author=author,
     title=title,
     since=since,
@@ -127,12 +158,14 @@ def export(
     Export books matching filters to markdown file
     """
 
+    sync_db.ensure_local_db()
+
     filters_used = any([author, title, since, latest])
     used_cache = False
 
     # CASE 1: filter provided --> compute fresh selection
     if filters_used:
-        books = getBookData.get_filtered_books(
+        books = parser.get_filtered_books(
             author=author,
             title=title,
             since=since,
@@ -164,10 +197,10 @@ def export(
 
         if txt:
             typer.echo(f"Exporting {book_id} as txt...")
-            getBookData.export_txt(book_id, export_path)
+            exporter.export_txt(book_id, export_path)
         else:
             typer.echo(f"Exporting {book_id}...")
-            getBookData.export_md(book_id, export_path)
+            exporter.export_md(book_id, export_path)
 
     typer.echo(f"Exported {len(books)} book(s).")
 
@@ -188,8 +221,11 @@ def export_all(
     """
     export all highlights to md, with --txt as option
     """
+
+    sync_db.ensure_local_db()
+
     if force:
-        books = getBookData.df_highlights['VolumeID'].unique().tolist()
+        books = parser.get_df_highlights()['VolumeID'].unique().tolist()
 
         # specify export path
         export_path = resolve_export_path(output_dir)
@@ -214,14 +250,14 @@ def export_all(
             task = progress.add_task("Exporting books...", total=len(books))
 
             for book_id in books:
-                title = getBookData.get_book_title(book_id)
+                title = parser.get_book_title(book_id)
 
                 progress.update(task, description=f"Exporting [cyan]{title}[/cyan]")
 
                 if txt:
-                    getBookData.export_txt(book_id, export_path)
+                    exporter.export_txt(book_id, export_path)
                 else:
-                    getBookData.export_md(book_id, export_path)
+                    exporter.export_md(book_id, export_path)
 
                 progress.advance(task)
 
