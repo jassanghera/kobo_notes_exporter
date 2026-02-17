@@ -1,5 +1,5 @@
 import sqlite3
-import pandas as pd # pip install pandas
+import pandas as pd
 import re
 import string
 from pathlib import Path

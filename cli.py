@@ -14,7 +14,7 @@ import core.sync_db as sync_db
 import core.parser as parser
 import core.exporter as exporter
 
-CACHE_FILE = Path(".kobo_last_query.json")
+CACHE_FILE = Path("./data/kobo_last_query.json")
 console = Console()
 app = typer.Typer(help="This is a really friendly CLI tool to help you export your ereader highlights :)")
 
