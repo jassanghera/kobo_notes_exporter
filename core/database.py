@@ -59,6 +59,6 @@ def load_data():
     data["highlights"]["DateModified"] = pd.to_datetime(
         data["highlights"]["DateModified"]
     )
-    print("done loading data")
+    # print("done loading data")
     return data
     

@@ -2,6 +2,7 @@ import typer
 # import getBookData
 import pandas as pd
 import json
+from datetime import datetime
 from rich import print
 from rich.table import Table
 from rich.console import Console
@@ -10,7 +11,6 @@ from typing import Annotated, Optional
 from pathlib import Path
 import core.device as device
 import core.sync_db as sync_db
-# import core.database as database
 import core.parser as parser
 import core.exporter as exporter
 
@@ -46,10 +46,39 @@ def read_cache() -> list[str]:
 def clear_cache():
     write_cache([])
 
+def show_sync_status():
+
+    metadata_path = Path("./data/metadata.json")
+
+    if not metadata_path.exists():
+        console.print("[yellow]⚠ No local database found.[/yellow]")
+        console.print("[dim]Run 'sync' to create a local copy.[/dim]")
+        return
+
+    try:
+        with open(metadata_path, "r", encoding="utf-8") as f:
+            metadata = json.load(f)
+
+        last_sync = metadata.get("last_sync")
+
+        if last_sync:
+            try:
+                dt = datetime.fromisoformat(last_sync)
+                formatted = dt.strftime("%d-%m-%Y %H:%M") # format: 17-02-2026 13:05
+                # formatted = dt.strftime("%d %b %Y at %H:%M") # format: 17 Feb 2026 13:05
+                console.print(f"[dim]Database last synced:[/dim] {formatted}")
+            except ValueError:
+                console.print(f"[dim]Database last synced:[/dim] {last_sync}")
+        else:
+            console.print("[yellow]⚠ Sync metadata incomplete.[/yellow]")
+
+    except Exception:
+        console.print("[yellow]⚠ Could not read sync metadata.[/yellow]")
+
+
 # --------------------------------------------------------------------------
 # COMMANDS
 # --------------------------------------------------------------------------
-
 
 @app.command()
 def hello(name: str = typer.Argument(help="Person to greet")):
@@ -104,6 +133,12 @@ def books(
     """
     
     sync_db.ensure_local_db()
+    
+    console.print()
+    show_sync_status()
+    console.print()
+
+
 
     console.print("[dim]Loading highlight data...[/dim]")
 
@@ -167,6 +202,10 @@ def export(
     """
 
     sync_db.ensure_local_db()
+    
+    console.print()
+    show_sync_status()
+    console.print()
 
     filters_used = any([author, title, since, latest])
     used_cache = False
@@ -223,7 +262,7 @@ def export(
     # clear cache if used
     if used_cache:
         clear_cache()
-        console.print("Selection cleared.")
+        # console.print("Selection cleared.")
 
 
 @app.command()
@@ -237,6 +276,11 @@ def export_all(
     """
 
     sync_db.ensure_local_db()
+    
+    console.print()
+    show_sync_status()
+    console.print()
+
 
     if force:
         books = parser.get_df_highlights()['VolumeID'].unique().tolist()
@@ -264,8 +308,6 @@ def export_all(
 
         console.print("\n[bold green]✔ Export complete.[/bold green]\n")
 
-        
-        
     else:
         console.print("[yellow]Operation cancelled.[/yellow]")
 
