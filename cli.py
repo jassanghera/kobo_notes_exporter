@@ -59,19 +59,6 @@ def hello(name: str = typer.Argument(help="Person to greet")):
     console.print(f"[green]hello {name}[/green] :smile:")
 
 @app.command()
-def err_test():
-    """
-    test command for development
-    """
-    print("This is a test command. Hello world!")
-
-    try:
-        x = int("abc")
-    except ValueError:
-        print("Invalid number")
-
-
-@app.command()
 def detect():
     """
     detect attached kobo device and locate database
@@ -80,26 +67,27 @@ def detect():
     db_path = device.find_kobo_db()
 
     if not db_path:
-        print(f"[red]No Kobo device detected[/red]")
+        console.print(f"[red]No Kobo device detected[/red]")
         raise typer.Exit(code=1)
 
-    print(f"[green]Kobo database found at:[/green] {db_path}")   
+    console.print(f"[green]Kobo database found at:[/green] {db_path}")   
 
 @app.command()
 def sync():
     """
     Sync Kobo database locally 
     """
-    print(f"Looking for Kobo device...")
+    console.print(f"[bold]Looking for Kobo device...[/bold]")
     db_path = device.find_kobo_db()
 
     if not db_path:
-        print(f"[red]No Kobo device detected. Please connect your device and try again.[/red]")
-        return
+        console.print(f"[red]No Kobo device detected.[/red]")
+        console.print("Please connect your device and run [bold cyan]sync[/bold cyan] again.")
+        raise typer.Exit(code=1)
 
     metadata = sync_db.perform_sync(db_path)
-    print(f"[green]Sync complete![/green]")
-    print(f"Last sync: {metadata['last_sync']}") 
+    console.print(f"[bold green]✔ Sync complete![/bold green]")
+    console.print(f"[dim]Last sync: {metadata['last_sync']}[/dim]") 
 
 
 @app.command()
@@ -117,6 +105,8 @@ def books(
     
     sync_db.ensure_local_db()
 
+    console.print("[dim]Loading highlight data...[/dim]")
+
     books = parser.get_highlight_counts()
     books = books.sort_values("LatestHighlight", ascending=False)
 
@@ -129,6 +119,7 @@ def books(
 
     if books.empty:
         console.print("[yellow]No books matched your filters.[/yellow]")
+        console.print("[dim]Try adjusting your filters or run [bold cyan]books --all[/bold cyan] to see everything.[/dim]")
         raise typer.Exit()
 
 
@@ -190,7 +181,7 @@ def export(
         )
 
         if books.empty:
-            typer.echo("No books matched your filters.")
+            console.print("[yellow]No books matched your filters.[/yellow]")
             raise typer.Exit()
         
         books = books["VolumeID"].tolist()
@@ -200,8 +191,8 @@ def export(
         books = read_cache()
 
         if not books:
-            typer.echo("No books selected")
-            typer.echo("Run 'books' first or provide filters")
+            console.print("No books selected")
+            console.print("Run 'books' first or provide filters")
             raise typer.Exit()
         
         used_cache = True
@@ -209,24 +200,30 @@ def export(
     # specify export path
     export_path = resolve_export_path(output_dir)
 
+    # msg to user before export
+    console.print(f"[bold]Preparing to export {len(books)} book(s)...[/bold]")
+
+
     # export selected books
     for book_id in books:
 
+        title = parser.get_book_title(book_id)
+
         if txt:
-            typer.echo(f"Exporting {book_id} as txt...")
+            console.print(f"Exporting {title} as txt...")
             exporter.export_txt(book_id, export_path)
         else:
-            typer.echo(f"Exporting {book_id}...")
+            console.print(f"Exporting {title}...")
             exporter.export_md(book_id, export_path)
 
-    typer.echo(f"Exported {len(books)} book(s).")
+    console.print(f"[bold green]✔ Exported {len(books)} book(s).[/bold green]")
+    console.print(f"[dim]Location:[/dim] {export_path.resolve()}")
 
-    typer.echo("Export complete.")
 
     # clear cache if used
     if used_cache:
         clear_cache()
-        typer.echo("Selection cleared.")
+        console.print("Selection cleared.")
 
 
 @app.command()
@@ -263,6 +260,8 @@ def export_all(
         #             print(f'Exported {title} by {author}!')
         #             progress.advance(task)
 
+        console.print(f"[bold]Exporting {len(books)} books...[/bold]")
+
         with Progress() as progress:
             task = progress.add_task("Exporting books...", total=len(books))
 
@@ -283,7 +282,13 @@ def export_all(
         
         
     else:
-        print("Operation cancelled")
+        console.print("[yellow]Operation cancelled.[/yellow]")
+
+@app.callback()
+def main_callback():
+    """
+    Kobo Notes Exporter CLI
+    """
 
 
 def main():
