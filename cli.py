@@ -56,7 +56,20 @@ def hello(name: str = typer.Argument(help="Person to greet")):
     """
     say hello to someone
     """
-    print(f"[green]hello {name}[/green] :smile:")
+    console.print(f"[green]hello {name}[/green] :smile:")
+
+@app.command()
+def err_test():
+    """
+    test command for development
+    """
+    print("This is a test command. Hello world!")
+
+    try:
+        x = int("abc")
+    except ValueError:
+        print("Invalid number")
+
 
 @app.command()
 def detect():
@@ -101,18 +114,23 @@ def books(
     """
     Show books with highlight counts
     """
-
+    
     sync_db.ensure_local_db()
 
     books = parser.get_highlight_counts()
     books = books.sort_values("LatestHighlight", ascending=False)
 
     books = parser.get_filtered_books(
-    author=author,
-    title=title,
-    since=since,
-    latest=latest
+        author=author,
+        title=title,
+        since=since,
+        latest=latest
     )
+
+    if books.empty:
+        console.print("[yellow]No books matched your filters.[/yellow]")
+        raise typer.Exit()
+
 
     if all:
         pass
@@ -142,7 +160,6 @@ def books(
     # store book_ids in cache
     visible_volume_ids = books["VolumeID"].tolist()
     write_cache(visible_volume_ids)
-
 
 
 @app.command()
@@ -269,7 +286,19 @@ def export_all(
         print("Operation cancelled")
 
 
+def main():
+    try:
+        app()
+    except ValueError as e:
+        console.print(f"[red]❌ Error:[/red] {e}")
+        raise typer.Exit(code=1)
+    except Exception as e:
+        console.print("[red]❌ Unexpected error occurred.[/red]")
+        console.print(f"[dim]{e}[/dim]")
+        raise typer.Exit(code=1)
+
 
 if __name__ == "__main__":
-    app()
+    main()
+
 
