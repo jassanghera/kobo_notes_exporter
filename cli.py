@@ -244,22 +244,7 @@ def export_all(
         # specify export path
         export_path = resolve_export_path(output_dir)
 
-        # with Progress() as progress:
-
-        #     task = progress.add_task("Exporting books...", total=len(books))
-        #     if txt:
-        #         for book_id in books:
-        #             getBookData.export_txt(book_id, export_path)
-        #             print('you chose txt')
-        #             progress.advance(task)
-        #     else:
-        #         for book_id in books:
-        #             getBookData.export_md(book_id, export_path)
-        #             title = getBookData.get_book_title(book_id)
-        #             author = getBookData.get_book_author(book_id)
-        #             print(f'Exported {title} by {author}!')
-        #             progress.advance(task)
-
+        # start msg to user
         console.print(f"[bold]Exporting {len(books)} books...[/bold]")
 
         with Progress() as progress:
