@@ -1,152 +1,73 @@
-# 📚 Kobo Notes Exporter
+## Kobo Notes Exporter
 
-A Python command-line application that extracts highlights from a Kobo eReader and exports them to structured Markdown or TXT files.
+A Python command-line tool that extracts highlights from a Kobo eReader and exports them to structured Markdown or plain text files.
 
-This tool reads directly from the Kobo device’s internal SQLite database (`KoboReader.sqlite`), processes highlight data, and generates clean, readable note exports.
+The tool reads from the device’s internal SQLite database (KoboReader.sqlite), processes highlight data locally, and generates clean, readable note exports.
 
----
+### Features
 
-## 🚀 Features
+- Detects a connected Kobo device
+- Creates a local copy of the Kobo database for safe processing
+- Lists books with highlight counts
+- Filters books by author, title, or recency
+- Exports highlights to:
+  - Markdown (.md)
+  - Plain text (.txt)
+- Exports selected books or all highlights
+- Displays progress indicators during export
+- Stores last sync time and selected books for 
 
-* Automatic detection of a connected Kobo device
-* Automatic discovery of `KoboReader.sqlite`
-* Local database copy for safe processing
-* Export highlights to:
-
-  * Markdown (`.md`)
-  * Plain text (`.txt`)
-* Filter exports by:
-
-  * Author
-  * Title
-  * Recency
-* Export all highlights with confirmation prompt
-* Automatic export directory creation
-* Progress bar visualization in terminal
-* Safe filename sanitization
-
----
-
-## 🛠 Tech Stack
-
-* Python 3
-* SQLite
-* Pandas
-* Typer (CLI framework)
-* Rich (terminal formatting & progress bars)
-* pathlib
-
----
-
-## 📂 Project Structure
+### Project Structure
 
 ```
-cli.py              # CLI commands and user interaction
-getBookData.py      # Database queries and export logic
+  cli.py                 CLI commands and user interaction
+  core/
+      parser.py          Data processing and filtering
+      exporter.py        Export logic (Markdown/TXT)
+      sync_db.py         Local database synchronization
+      device.py          Kobo device detection
+  tests/
+      test_parser.py     Unit tests
 ```
 
-The project separates command-line logic from database and export functionality to keep the code modular and maintainable.
+The CLI layer handles user interaction and error handling.
+Core modules handle database access, filtering, and export logic.
 
----
 
-## 🔍 How It Works
+### Installation
 
-1. Detects a connected Kobo device by scanning mounted drives.
-2. Locates the `.kobo/KoboReader.sqlite` database file.
-3. Copies the database locally to prevent issues if the device disconnects.
-4. Queries highlight and metadata tables.
-5. Formats and exports highlights to the selected output format.
+1. Clone the repository
 
----
+    git clone <link>
+    cd kobo_notes_exporter
 
-## 📦 Installation
+2. Create a virtual environment
 
-Clone the repository:
+  Windows:
 
-```bash
-git clone <your-repo-url>
-cd kobo_notes_exporter
-```
+    python -m venv venv
+    venv\Scripts\activate
 
-Install dependencies:
+  macOS/Linux:
 
-```bash
-pip install -r requirements.txt
-```
+    python -m venv venv
+    source venv/bin/activate
 
----
+3. Install dependencies
 
-## ▶ Usage
+    pip install -r requirements.txt
 
-Detect a connected Kobo:
 
-```bash
-python cli.py detect
-```
+### Basic Usage Instructions
 
-List books with highlights:
+  instructions coming soon :)
 
-```bash
-python cli.py books
-```
+### Notes
 
-Export selected highlights:
+The Kobo device must be mounted as a drive.
+A local copy of the database is required before listing or exporting.
+The tool displays the last sync time when running database-dependent commands.
 
-```bash
-python cli.py export
-```
 
-Export all highlights (confirmation required):
-
-```bash
-python cli.py export-all
-```
-
-Specify output directory:
-
-```bash
-python cli.py export-all --output-dir ./exports
-```
-
-Export as plain text:
-
-```bash
-python cli.py export-all --txt
-```
-
----
-
-## 📁 Output
-
-By default, exported files are written to:
-
-```
-./exports/
-```
-
-Each file is named:
-
-```
-<Book Title> - <Author>.md
-```
-
----
-
-## ⚠ Notes
-
-* The Kobo device must be connected and mounted as a drive.
-* The application reads directly from the device database.
-* A local copy of the database is created during processing.
-
----
-
-## 🔮 Future Improvements
-
-* Unit test coverage
-* Packaging for pip installation
-* GUI interface
-* Enhanced filtering options
-
----
 
 
