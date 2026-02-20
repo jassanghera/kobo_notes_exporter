@@ -256,7 +256,9 @@ def export(
             exporter.export_md(book_id, export_path)
 
     console.print(f"[bold green]✔ Exported {len(books)} book(s).[/bold green]")
+    console.print()
     console.print(f"[dim]Location:[/dim] {export_path.resolve()}")
+    console.print()
 
 
     # clear cache if used
@@ -307,6 +309,7 @@ def export_all(
                 progress.advance(task)
 
         console.print("\n[bold green]✔ Export complete.[/bold green]\n")
+        console.print()
 
     else:
         console.print("[yellow]Operation cancelled.[/yellow]")
