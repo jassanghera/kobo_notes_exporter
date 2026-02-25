@@ -3,7 +3,7 @@ from pathlib import Path
 
 def find_kobo_db():
 
-    print("Scanning drives...")
+    # print("Scanning drives...")
 
     for letter in string.ascii_uppercase:
         drive = Path(f"{letter}:/")

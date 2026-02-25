@@ -1,5 +1,4 @@
 import typer
-# import getBookData
 import pandas as pd
 import json
 from datetime import datetime
@@ -31,7 +30,6 @@ def resolve_export_path(output_dir: Optional[str]) -> Path:
     path.mkdir(parents=True, exist_ok=True)
     return path
 
-
 def write_cache(volume_ids: list[str]):
     with open(CACHE_FILE, "w", encoding="utf-8") as f:
         json.dump(volume_ids, f)
@@ -48,7 +46,7 @@ def clear_cache():
 
 def show_sync_status():
 
-    metadata_path = Path("./data/metadata.json")
+    metadata_path = Path("./data/sync_metadata.json")
 
     if not metadata_path.exists():
         console.print("[yellow]⚠ No local database found.[/yellow]")
@@ -90,7 +88,7 @@ def hello(name: str = typer.Argument(help="Person to greet")):
 @app.command()
 def detect():
     """
-    detect attached kobo device and locate database
+    Detect attached kobo device and locate database, but does not sync
     """
 
     db_path = device.find_kobo_db()
@@ -123,10 +121,10 @@ def sync():
 def books(
             author: Annotated[Optional[str], typer.Option("--author", "-a", help="Filter by author")] = None,
             title: Annotated[Optional[str], typer.Option("--title", "-t", help="Filter by title")] = None,
-            since: Annotated[Optional[int], typer.Option("--since", help="Show books updated in last N days")] = None,
-            latest: Annotated[Optional[int], typer.Option("--latest", help="Show top N most recently updated books")] = None,
+            since: Annotated[Optional[int], typer.Option("--since", help="Filter books updated in last N days")] = None,
+            latest: Annotated[Optional[int], typer.Option("--latest", help="Filter top N most recently updated books")] = None,
             limit: Annotated[Optional[int], typer.Option("--limit", "-l", help="Limit number of results shown")] = 10,
-            all: Annotated[bool, typer.Option(help="show all books")] = False
+            all: Annotated[bool, typer.Option(help="Show all books")] = False
         ):
     """
     Show books with highlight counts
@@ -136,9 +134,6 @@ def books(
     
     console.print()
     show_sync_status()
-    console.print()
-
-
 
     console.print("[dim]Loading highlight data...[/dim]")
 
@@ -155,6 +150,7 @@ def books(
     if books.empty:
         console.print("[yellow]No books matched your filters.[/yellow]")
         console.print("[dim]Try adjusting your filters or run [bold cyan]books --all[/bold cyan] to see everything.[/dim]")
+        console.print()
         raise typer.Exit()
 
 
@@ -190,12 +186,12 @@ def books(
 
 @app.command()
 def export(    
-            author: Annotated[Optional[str], typer.Option("--author", "-a")] = None,
-            title: Annotated[Optional[str], typer.Option("--title", "-t")] = None,
-            since: Annotated[Optional[int], typer.Option("--since")] = None,
-            latest: Annotated[Optional[int], typer.Option("--latest")] = None,
+            author: Annotated[Optional[str], typer.Option("--author", "-a", help="Filter by author")] = None,
+            title: Annotated[Optional[str], typer.Option("--title", "-t", help="Filter by title")] = None,
+            since: Annotated[Optional[int], typer.Option("--since", help="Filter books updated in last N days")] = None,
+            latest: Annotated[Optional[int], typer.Option("--latest", help="Filter top N most recently updated books")] = None,
             txt: Annotated[bool, typer.Option(help="export to txt format")] = False,
-            output_dir: Annotated[Optional[str],typer.Option("--output-dir", "-o", help="Directory to export files into")] = None
+            output_dir: Annotated[Optional[str],typer.Option("--output-dir", "-o", help="Specify directory to export files into")] = None
         ):
     """
     Export books matching filters to markdown file
@@ -313,12 +309,6 @@ def export_all(
 
     else:
         console.print("[yellow]Operation cancelled.[/yellow]")
-
-@app.callback()
-def main_callback():
-    """
-    Kobo Notes Exporter CLI
-    """
 
 
 def main():

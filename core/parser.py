@@ -1,17 +1,6 @@
 import core.database as database
 import pandas as pd
 
-
-# db = 'KoboReader.sqlite'
-# data = database.load_data()
-
-# df_books = data["books"]
-# df_epub_chapters = data["epub"]
-# df_kepub_chapters = data["kepub"]
-# df_highlights = data["highlights"]
-
-# df_highlights["DateModified"] = pd.to_datetime(df_highlights["DateModified"])
-
 # lazy loading of dataframes
 df_books = None
 df_epub_chapters = None
@@ -33,10 +22,6 @@ def _ensure_loaded():
 
         kepub_id_lookup = dict(zip(df_kepub_chapters['ContentID'], df_kepub_chapters['VolumeIndex']))
 
-
-# build a lookup dict for kepub ContentIDs and VolumeIndex
-# kepub_id_lookup = dict(zip(df_kepub_chapters['ContentID'], df_kepub_chapters['VolumeIndex']))
-
 # ----------------------------------------------------------------------------------
 # MATCHING KEPUB CONTENTIDs - helper fn
 # ----------------------------------------------------------------------------------
@@ -44,8 +29,6 @@ def _ensure_loaded():
 # pass in a highlight ContentID, return the VolumeIndex if prefix match kepub ContentID
 def lookup_kepub_index(content_id):
     _ensure_loaded()
-
-
 
     for ch_id, vol_idx in kepub_id_lookup.items():
         if ch_id.startswith(content_id):
@@ -140,7 +123,6 @@ def map_chapters_to_highlights(volume_id):
 def get_highlight_counts():
     _ensure_loaded()
 
-
     # group highlights by VolumeID
     grouped = (
         df_highlights
@@ -230,7 +212,7 @@ def get_books_by_author(author):
     return [vid for vid in volume_ids if vid in highlighted_ids]
 
 # ------------------------------------------------------------------------------------------------
-# logic for filtering books to be used in CLI commands
+# logic for filtering books to be used in CLI commands "books" and "export"
 # ------------------------------------------------------------------------------------------------
 
 def get_filtered_books(author=None, title=None, since=None, latest=None):

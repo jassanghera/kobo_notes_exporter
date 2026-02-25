@@ -7,7 +7,7 @@ from rich import print
 # define paths
 DATA_DIR = Path("data")
 LOCAL_DB_PATH = DATA_DIR / "KoboReader.sqlite"
-METADATA_PATH = DATA_DIR / "metadata.json"
+METADATA_PATH = DATA_DIR / "sync_metadata.json"
 
 def ensure_data_dir():
     DATA_DIR.mkdir(exist_ok=True)
