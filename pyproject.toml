@@ -9,12 +9,20 @@ license = {text = "MIT"}
 readme = "README.md"
 requires-python = ">=3.10"
 dependencies = [
+    "typer (>=0.24.1,<0.25.0)",
+    "rich (>=14.3.3,<15.0.0)",
+    "pandas (>=3.0.1,<4.0.0)"
 ]
 
 
 [build-system]
 requires = ["poetry-core>=2.0.0,<3.0.0"]
 build-backend = "poetry.core.masonry.api"
+
+[dependency-groups]
+dev = [
+    "pytest (>=9.0.2,<10.0.0)"
+]
 
 [tool.poetry.scripts]
 kobo = "kobo_notes_exporter.cli:app"
