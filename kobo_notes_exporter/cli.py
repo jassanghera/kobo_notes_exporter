@@ -18,7 +18,6 @@ from datetime import datetime
 from pathlib import Path
 from typing import Annotated, Optional
 
-import pandas as pd
 import typer
 from rich.console import Console
 from rich.progress import Progress
@@ -56,7 +55,7 @@ def resolve_export_path(output_dir: Optional[str]) -> Path:
     path.mkdir(parents=True, exist_ok=True)
     return path
 
-def write_cache(volume_ids: list[str]):
+def write_cache(volume_ids: list[str]) -> None:
     """Persist the list of visible VolumeIDs so `export` can run without filters."""
     with open(CACHE_FILE, "w", encoding="utf-8") as f:
         json.dump(volume_ids, f)
@@ -69,18 +68,18 @@ def read_cache() -> list[str]:
     except (FileNotFoundError, json.JSONDecodeError):
         return []
 
-def clear_cache():
+def clear_cache() -> None:
     """Clear the cached selection used by `export` when no filters are provided."""
     write_cache([])
 
-def show_sync_status():
+def show_sync_status() -> None:
     """Print the last sync time if local sync metadata is available."""
 
     metadata_path = Path("./data/sync_metadata.json")
 
     if not metadata_path.exists():
         console.print("[yellow]⚠ No local database found.[/yellow]")
-        console.print("[dim]Run 'sync' to create a local copy.[/dim]")
+        console.print("[dim]Run 'kobo sync' to create a local copy.[/dim]")
         return
 
     try:
@@ -109,14 +108,14 @@ def show_sync_status():
 # --------------------------------------------------------------------------
 
 @app.command()
-def hello(name: str = typer.Argument(help="Person to greet")):
+def hello(name: str = typer.Argument(help="Person to greet")) -> None:
     """
     Say hello to someone
     """
     console.print(f"[green]hello {name}[/green] :smile:")
 
 @app.command()
-def detect():
+def detect() -> None:
     """
     Detect attached Kobo device and display database path (no sync)
     """
@@ -130,7 +129,7 @@ def detect():
     console.print(f"[green]Kobo database found at:[/green] {db_path}")   
 
 @app.command()
-def sync():
+def sync() -> None:
     """Copy the Kobo database locally for safe processing""" 
     console.print(f"[bold]Looking for Kobo device...[/bold]")
     db_path = device.find_kobo_db()
@@ -153,7 +152,7 @@ def books(
             latest: Annotated[Optional[int], typer.Option("--latest", help="Filter top N most recently updated books")] = None,
             limit: Annotated[Optional[int], typer.Option("--limit", "-l", help="Limit number of results shown")] = 10,
             all: Annotated[bool, typer.Option(help="Show all books")] = False
-        ):
+        ) -> None:
     """Show books with highlight counts, options to filter by author/title/recency"""
     
     sync_db.ensure_local_db()
@@ -164,9 +163,10 @@ def books(
     console.print("[dim]Loading highlight data...[/dim]")
 
     # Filter + sort logic lives in the parser module
-    books = parser.get_highlight_counts()
-    books = books.sort_values("LatestHighlight", ascending=False)
+    # books = parser.get_highlight_counts()
+    # books = books.sort_values("LatestHighlight", ascending=False)
 
+    # Filter + sort logic lives in the parser module
     books = parser.get_filtered_books(
         author=author,
         title=title,
@@ -218,7 +218,7 @@ def export(
             latest: Annotated[Optional[int], typer.Option("--latest", help="Filter top N most recently updated books")] = None,
             txt: Annotated[bool, typer.Option(help="export to txt format")] = False,
             output_dir: Annotated[Optional[str],typer.Option("--output-dir", "-o", help="Specify directory to export files into")] = None
-        ):
+        ) -> None:
     """
     Export highlights for selected books to Markdown (default) or TXT
     """
@@ -290,7 +290,7 @@ def export_all(
     force: Annotated[bool, typer.Option(prompt="Are you sure you want to export all?")],
     txt: Annotated[bool, typer.Option(help="export to txt format")] = False,
     output_dir: Annotated[Optional[str],typer.Option("--output-dir", "-o", help="Directory to export files into")] = None
-    ):
+    ) -> None:
     """
     Export highlights for every book found to Markdown (default) or TXT
     """
@@ -333,7 +333,7 @@ def export_all(
         console.print("[yellow]Operation cancelled.[/yellow]")
 
 @app.command()
-def version():
+def version() -> None:
     """Show installed version"""
     console.print("Kobo Notes Exporter v0.1.0")
 
