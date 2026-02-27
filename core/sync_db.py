@@ -55,8 +55,9 @@ def get_local_db_path():
 def ensure_local_db():
     if not get_local_db_path():
         print("[red]No local database found.[/red]")
-        print("Please connect your Kobo and run:")
-        print("   python cli.py sync")
+        print("Run [bold cyan]kobo sync[/bold cyan] to create a local copy.")
+        print()
+        raise typer.Exit(code=1)
 
 def has_previous_sync():
     return METADATA_PATH.exists() and LOCAL_DB_PATH.exists()
