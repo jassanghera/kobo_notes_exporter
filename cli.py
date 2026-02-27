@@ -310,6 +310,10 @@ def export_all(
     else:
         console.print("[yellow]Operation cancelled.[/yellow]")
 
+@app.command()
+def version():
+    """Show installed version"""
+    console.print("Kobo Notes Exporter v0.1.0")
 
 def main():
     try:
