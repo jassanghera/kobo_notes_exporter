@@ -1,4 +1,4 @@
-import core.database as database
+import kobo_notes_exporter.core.database as database
 import pandas as pd
 
 # lazy loading of dataframes

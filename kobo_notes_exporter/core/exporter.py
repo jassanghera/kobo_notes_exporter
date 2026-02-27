@@ -1,4 +1,4 @@
-import core.parser as parse
+import kobo_notes_exporter.core.parser as parse
 import re
 from pathlib import Path
 
