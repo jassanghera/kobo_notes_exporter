@@ -8,10 +8,10 @@ from rich.console import Console
 from rich.progress import Progress
 from typing import Annotated, Optional 
 from pathlib import Path
-import core.device as device
-import core.sync_db as sync_db
-import core.parser as parser
-import core.exporter as exporter
+from kobo_notes_exporter.core import device
+from kobo_notes_exporter.core import parser
+from kobo_notes_exporter.core import exporter
+from kobo_notes_exporter.core import sync_db
 
 CACHE_FILE = Path("./data/kobo_last_query.json")
 console = Console()

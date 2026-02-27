@@ -1,7 +1,7 @@
 import sqlite3
 import pandas as pd
 from pathlib import Path
-import core.sync_db as sync_db
+import kobo_notes_exporter.core.sync_db as sync_db
 
 # ----------------------------------------------------------------------------------
 # SQL QUERIES -> DATAFRAMES

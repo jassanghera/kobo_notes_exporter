@@ -1,0 +1,20 @@
+[project]
+name = "kobo-notes-exporter"
+version = "0.1.0"
+description = "A CLI tool to export highlights from Kobo ereaders"
+authors = [
+    {name = "Jas Sanghera"}
+]
+license = {text = "MIT"}
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = [
+]
+
+
+[build-system]
+requires = ["poetry-core>=2.0.0,<3.0.0"]
+build-backend = "poetry.core.masonry.api"
+
+[tool.poetry.scripts]
+kobo = "kobo_notes_exporter.cli:app"
