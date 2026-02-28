@@ -1,14 +1,43 @@
+"""
+kobo_notes_exporter.core.parser
+
+Data transformation and business logic layer.
+
+This module is responsible for:
+- Loading Kobo data into memory (lazy loading via `_ensure_loaded`)
+- Handling Kobo-specific quirks (e.g., kepub prefix-based ContentIDs)
+- Mapping highlights to chapters
+- Computing highlight counts and recency
+- Filtering books for CLI commands
+
+Design notes:
+- DataFrames are loaded lazily and stored in module-level globals.
+- The CLI layer should call into this module for all data-related logic.
+"""
+
+from __future__ import annotations
+
 import kobo_notes_exporter.core.database as database
 import pandas as pd
 
-# lazy loading of dataframes
+# -----------------------------------------------------------------------------
+# Lazy-loaded module state
+# -----------------------------------------------------------------------------
+
 df_books = None
 df_epub_chapters = None
 df_kepub_chapters = None
 df_highlights = None
 kepub_id_lookup = None
 
-def _ensure_loaded():
+def _ensure_loaded() -> None:
+    """Load Kobo data into memory on first access.
+
+    This implements lazy loading:
+    - The SQLite database is read only once.
+    - DataFrames are cached at module scope.
+    - Subsequent function calls reuse in-memory data.
+    """
     global df_books, df_epub_chapters, df_kepub_chapters, df_highlights, kepub_id_lookup
 
     if df_books is None:
@@ -20,14 +49,26 @@ def _ensure_loaded():
 
         df_highlights["DateModified"] = pd.to_datetime(df_highlights["DateModified"])
 
-        kepub_id_lookup = dict(zip(df_kepub_chapters['ContentID'], df_kepub_chapters['VolumeIndex']))
+        # Build a lookup dict for kepub chapters:
+        # {ContentID -> VolumeIndex}
+        kepub_id_lookup = dict(
+            zip(df_kepub_chapters['ContentID'], df_kepub_chapters['VolumeIndex'])
+        )
 
 # ----------------------------------------------------------------------------------
-# MATCHING KEPUB CONTENTIDs - helper fn
+# Kepub ContentID Handling
 # ----------------------------------------------------------------------------------
 
 # pass in a highlight ContentID, return the VolumeIndex if prefix match kepub ContentID
-def lookup_kepub_index(content_id):
+def lookup_kepub_index(content_id: str) -> int | None:
+    """Return the VolumeIndex for a kepub highlight using prefix matching.
+
+    Kobo kepub highlights often store ContentIDs as prefixes of chapter IDs.
+    We match using `startswith` to recover the correct chapter index.
+
+    Returns:
+        VolumeIndex if matched, otherwise None.
+    """
     _ensure_loaded()
 
     for ch_id, vol_idx in kepub_id_lookup.items():
@@ -36,20 +77,28 @@ def lookup_kepub_index(content_id):
     return None
 
 # -----------------------------------------------------------------------------------
-# ATTACH KEPUB VOLUMEINDEX TO HIGHLIGHTS (epub as backup)
+# VolumeIndex Recovery and Highlight Sorting
 # -----------------------------------------------------------------------------------
 
-def add_v_idx_to_kepub():
+def add_v_idx_to_kepub() -> pd.DataFrame:
+    """Attach VolumeIndex to highlights using kepub logic, with epub fallback.
+
+    Process:
+    1. Attempt prefix match for kepub highlights.
+    2. If missing, attempt exact match in epub chapters.
+    3. Update df_highlights with recovered VolumeIndex.
+
+    Returns:
+        Updated df_highlights DataFrame.
+    """
     _ensure_loaded()
 
     # add kepub VolumeIndex column to highlights df manually using the lookup function
     df_highlights['VolumeIndex'] = df_highlights['ContentID'].apply(lookup_kepub_index)
 
-
     # insert epub VolumeIndex as backup where kepub VolumeIndex is missing, consider exact match of ContentID
-    
     rowidx_vidx = {} # (row_index : volume_index), rows from highlight table, vidx from epub chapter VolumeIndex
- 
+    
     for _i, row in df_highlights.iterrows():
         ContentID = row['ContentID']
         VolumeIndex = row['VolumeIndex']
@@ -67,22 +116,27 @@ def add_v_idx_to_kepub():
     return df_highlights
 
 
-
-#------------------------------------------------------------------------------------
-# SORT HIGHLIGHTS BY CHAPTER INDICES
-#------------------------------------------------------------------------------------
-
-def sort_highlights_by_v_idx():
+def sort_highlights_by_v_idx() -> pd.DataFrame:
+    """Return highlights sorted by VolumeID and chapter order."""
     _ensure_loaded()
     highlights_with_v_idx = add_v_idx_to_kepub()
     return highlights_with_v_idx.sort_values(by=['VolumeID', 'VolumeIndex'])
 
 
 # ----------------------------------------------------------------------------------
-# CHAPTERS & HIGHLIGHTS FOR A GIVEN BOOK
+# Chapter and Highlight Mapping
 # ----------------------------------------------------------------------------------
 
-def map_chapters_to_highlights(volume_id):
+def map_chapters_to_highlights(volume_id: str) -> dict[str, list[str]]:
+    """Map chapter titles to their associated highlight texts.
+
+    Args:
+        volume_id: Kobo VolumeID for a specific book.
+
+    Returns:
+        Dictionary mapping:
+            {chapter_title: [highlight_text, ...]}
+    """
     _ensure_loaded()
 
     df_highlights_sorted = sort_highlights_by_v_idx()
@@ -117,10 +171,11 @@ def map_chapters_to_highlights(volume_id):
     return chapters_to_highlights
 
 # ---------------------------------------------------------------------------------------------------
-# highlight counts + date modified
+# Highlight Statistics - Counts and Latest Highlight Date
 # ---------------------------------------------------------------------------------------------------
 
-def get_highlight_counts():
+def get_highlight_counts() -> pd.DataFrame:
+    """Return highlight counts and latest highlight date per book."""
     _ensure_loaded()
 
     # group highlights by VolumeID
@@ -146,13 +201,12 @@ def get_highlight_counts():
         ["VolumeID", "Title", "Attribution", "HighlightCount", "LatestHighlight"]
     ]
 
+# --------------------------------------------------------------------------------------------------
+# Book Metadata Accessors
+# --------------------------------------------------------------------------------------------------
 
-
-# # --------------------------------------------------------------------------------------------------
-# # GET LIST OF CHAPTER TITLES FOR A GIVEN BOOK
-# # --------------------------------------------------------------------------------------------------
-
-def get_chapter_titles(volume_id):
+def get_chapter_titles(volume_id: str) -> list[str]:
+    """Return the chapter titles for a given VolumeID, trying kepub first then epub."""
     _ensure_loaded()
 
     # try kepub chapters first
@@ -167,23 +221,26 @@ def get_chapter_titles(volume_id):
 
     return []
 
-# -------------------------------------------------------------------------------------------------
-# getters - book title, author, volumeID
-# -------------------------------------------------------------------------------------------------
-
-def get_book_title(volume_id):
+def get_book_title(volume_id: str) -> str:
+    """Return the title for a given VolumeID."""
     _ensure_loaded()
     book = df_books[df_books['ContentID'] == volume_id]
     title = book.iloc[0]['Title']
     return title
 
-def get_book_author(volume_id):
+def get_book_author(volume_id: str) -> str:
+    """Return the author for a given VolumeID."""
     _ensure_loaded()
     book = df_books[df_books['ContentID'] == volume_id]
     author = book.iloc[0]['Attribution']
     return author
 
-def get_volumeID_from_title(title): # only for highlights 
+def get_volumeID_from_title(title: str) -> str: # only for highlights 
+    """Return VolumeID for an exact title match (case-insensitive).
+
+    Raises:
+        ValueError if no match or multiple matches found.
+    """
     _ensure_loaded()
         
     matches = df_books[df_books["Title"].str.lower() == title.lower()]
@@ -196,7 +253,8 @@ def get_volumeID_from_title(title): # only for highlights
     
     return matches.iloc[0]["ContentID"]
 
-def get_books_by_author(author):
+def get_books_by_author(author: str) -> list[str]:
+    """Return VolumeIDs for books by a given author that contain highlights."""
     _ensure_loaded()
 
     matches = df_books[df_books["Attribution"].str.lower() == author.lower()]
@@ -212,10 +270,16 @@ def get_books_by_author(author):
     return [vid for vid in volume_ids if vid in highlighted_ids]
 
 # ------------------------------------------------------------------------------------------------
-# logic for filtering books to be used in CLI commands "books" and "export"
+# Filtering Logic (Used by CLI)
 # ------------------------------------------------------------------------------------------------
 
-def get_filtered_books(author=None, title=None, since=None, latest=None):
+def get_filtered_books(
+    author: str | None = None,
+    title: str | None = None,
+    since: int | None = None,
+    latest: int | None = None,
+) -> pd.DataFrame:
+    """Return filtered book list for CLI display/export."""
     _ensure_loaded()   
 
     books = get_highlight_counts()
@@ -237,7 +301,8 @@ def get_filtered_books(author=None, title=None, since=None, latest=None):
 
     return books
 
-def get_df_highlights():
+def get_df_highlights() -> pd.DataFrame:
+    """Return the raw highlights DataFrame (lazy-loaded)."""
     _ensure_loaded()
     return df_highlights
 
