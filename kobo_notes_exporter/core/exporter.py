@@ -1,73 +1,112 @@
-import kobo_notes_exporter.core.parser as parse
+"""
+kobo_notes_exporter.core.exporter
+
+Export layer for Kobo Notes Exporter.
+
+This module is responsible for:
+- formatting highlights into Markdown or plain text
+- writing exported files to disk
+- ensuring filenames are filesystem-safe
+
+It does NOT query the database directly. It relies on `parser.py` to provide:
+- book title/author
+- chapter -> highlights mapping
+"""
+
+from __future__ import annotations
+from kobo_notes_exporter.core import parser
 import re
 from pathlib import Path
 
 
 # -------------------------------------------------------------------------------------------------
-# make safe file names - no [\\/*?:"<>|] allowed
+# Filename and Path Utilities
 # -------------------------------------------------------------------------------------------------
+
+_INVALID_FILENAME_CHARS = r'[<>:"/\\|?*]'
 
 def safe_filename(name: str) -> str:
-    return re.sub(r'[<>:"/\\|?*]', "", name)
+    """Return a filesystem-safe filename by stripping invalid characters.
 
+    Windows forbids: < > : " / \\ | ? *
+    We remove those characters to prevent write failures.
+    """
+    return re.sub(_INVALID_FILENAME_CHARS, "", name).strip()
 
-# -------------------------------------------------------------------------------------------------
-# EXPORT TO TXT FILE
-# -------------------------------------------------------------------------------------------------
+def _build_export_path(volume_id: str, output_dir: Path, ext: str) -> Path:
+    """Build the output filepath for a given book export."""
+    title = parser.get_book_title(volume_id)
+    author = parser.get_book_author(volume_id)
 
-def export_txt(volumeID, output_dir):
-
-    title = parse.get_book_title(volumeID)
-    author = parse.get_book_author(volumeID)
-
-    filename = safe_filename(f'{title} - {author}.txt')
-    filepath = output_dir / f"{filename}"
-
-    with open(filepath, 'w', encoding='utf-8') as f:
-
-        f.write(title + "\n")
-        f.write(author + "\n\n")
-        
-        chap_and_hl = parse.map_chapters_to_highlights(volumeID)
-
-        for ch, hl in chap_and_hl.items():
-            f.write("_______________________________________________________________" + "\n")
-            f.write(f'Chapter: {ch}' + '\n\n')
-        
-            for h in hl:
-                f.write(f'- {h}' + '\n')
-            f.write("\n")
-        f.write("\n")
-
-        # print(f'Wrote to {f.name} successfully!')
-
+    filename = safe_filename(f"{title} - {author}.{ext}")
+    return output_dir / filename
 
 # ------------------------------------------------------------------------------------------------
 # EXPORT TO MARKDOWN FILE
 # ------------------------------------------------------------------------------------------------
 
-def export_md(volumeID, output_dir):
+def export_md(volume_id: str, output_dir: Path) -> Path:
+    """Export highlights for a single book to a Markdown (.md) file.
 
-    title = parse.get_book_title(volumeID)
-    author = parse.get_book_author(volumeID)
+    Args:
+        volume_id: Kobo VolumeID identifying the book.
+        output_dir: Directory to write the export file into.
 
-    filename = safe_filename(f'{title} - {author}.md')
-    filepath = output_dir / f"{filename}"
+    Returns:
+        Path to the written file.
+    """
+    filepath = _build_export_path(volume_id, output_dir, "md")
 
-    with open(filepath, 'w', encoding='utf-8') as f:
+    title = parser.get_book_title(volume_id)
+    author = parser.get_book_author(volume_id)
+    chapters = parser.map_chapters_to_highlights(volume_id)
 
-        f.write(f'# {title}\n')
-        f.write(f'## {author}\n\n')
-        
-        chap_and_hl = parse.map_chapters_to_highlights(volumeID)
+    with open(filepath, "w", encoding="utf-8") as f:
+        f.write(f"# {title}\n")
+        f.write(f"## {author}\n\n")
 
-        for ch, hl in chap_and_hl.items():
-            f.write("_______________________________________________________________" + "\n")
-            f.write(f'### {ch}\n\n')
-        
-            for h in hl:
-                f.write(f'- {h}\n')
+        for chapter_title, highlights in chapters.items():
+            f.write("_" * 63 + "\n")
+            f.write(f"### {chapter_title}\n\n")
+
+            for text in highlights:
+                f.write(f"- {text}\n")
+
             f.write("\n")
-        f.write("\n")
 
-        # print(f'Wrote to {f.name} successfully!')
+    return filepath
+
+# -------------------------------------------------------------------------------------------------
+# EXPORT TO TXT FILE
+# -------------------------------------------------------------------------------------------------
+
+def export_txt(volume_id: str, output_dir: Path) -> Path:
+    """Export highlights for a single book to a .txt file.
+
+    Args:
+        volume_id: Kobo VolumeID identifying the book.
+        output_dir: Directory to write the export file into.
+
+    Returns:
+        Path to the written file.
+    """
+    filepath = _build_export_path(volume_id, output_dir, "txt")
+
+    title = parser.get_book_title(volume_id)
+    author = parser.get_book_author(volume_id)
+    chapters = parser.map_chapters_to_highlights(volume_id)
+
+    with open(filepath, "w", encoding="utf-8") as f:
+        f.write(title + "\n")
+        f.write(author + "\n\n")
+
+        for chapter_title, highlights in chapters.items():
+            f.write("_" * 63 + "\n")
+            f.write(f"Chapter: {chapter_title}\n\n")
+
+            for text in highlights:
+                f.write(f"- {text}\n")
+
+            f.write("\n")
+
+    return filepath
