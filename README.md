@@ -21,7 +21,7 @@ The tool copies the Kobo device’s internal SQLite database locally, processes 
 - Export selected books or all highlights
 - Displays last sync time and progress indicators
 
-## 🏗 Architecture Overview
+## Architecture Overview
 
 The application follows a layered structure:
 
@@ -66,7 +66,7 @@ Key design decisions:
 - Business logic lives in `core/`, while `cli.py` handles presentation.
 - Runtime data is stored in the directory where the tool is executed.
 
-## 📦 Installation
+## Installation
 
 ### Option 1 – Install from source (development)
 
