@@ -1,68 +1,133 @@
-## Kobo Notes Exporter
+# Kobo Notes Exporter
 
 A Python command-line tool that extracts highlights from a Kobo eReader and exports them to structured Markdown or plain text files.
 
-The tool reads from the device’s internal SQLite database (KoboReader.sqlite), processes highlight data locally, and generates clean, readable note exports.
+The tool copies the Kobo device’s internal SQLite database locally, processes highlight data offline, and generates clean, readable exports.
 
-### Features
+## Features
 
-- Detects a connected Kobo device
-- Creates a local copy of the Kobo database for safe processing
+- Detects a connected Kobo device (Windows)
+- Safely copies the Kobo database locally before processing
 - Lists books with highlight counts
-- Filters books by author, title, or recency
-- Exports highlights to:
-  - Markdown (.md)
-  - Plain text (.txt)
-- Exports selected books or all highlights
-- Displays progress indicators during export
-- Stores last sync time and selected books for 
+- Filter books by:
+  - Author
+  - Title
+  - Recency
+- Export highlights to:
+  - Markdown (`.md`)
+  - Plain text (`.txt`)
+- Export selected books or all highlights
+- Displays last sync time and progress indicators
+
+## 🏗 Architecture Overview
+
+The application follows a layered structure:
+
+CLI (Typer + Rich)
+↓
+Parser (Business Logic)
+↓
+Database Loader (SQLite → pandas)
+↓
+Sync Layer (Local DB copy)
+↓
+Device Detection
 
 ### Project Structure
 
 ```
-  cli.py                 CLI commands and user interaction
-  core/
-      parser.py          Data processing and filtering
-      exporter.py        Export logic (Markdown/TXT)
-      sync_db.py         Local database synchronization
-      device.py          Kobo device detection
-  tests/
-      test_parser.py     Unit tests
+kobo_notes_exporter/
+│
+├── cli.py              # CLI commands and presentation layer
+├── core/
+│   ├── database.py     # SQLite access
+│   ├── device.py       # Kobo device detection
+│   ├── sync_db.py      # Local database synchronization
+│   ├── parser.py       # Data transformation and filtering logic
+│   └── exporter.py     # Markdown/TXT export logic
+│
+├── tests/              # Unit tests (pytest)
+├── pyproject.toml      # Poetry configuration
+└── README.md
 ```
 
 The CLI layer handles user interaction and error handling.
 Core modules handle database access, filtering, and export logic.
 
 
-### Installation
+Key design decisions:
 
-1. Clone the repository
+- The Kobo database is **never queried directly from the device**.
+- A local copy is created to avoid disconnect and locking issues.
+- Business logic lives in `core/`, while `cli.py` handles presentation.
+- Runtime data is stored in the directory where the tool is executed.
 
-    git clone <link>
-    cd kobo_notes_exporter
+## 📦 Installation
 
-2. Create a virtual environment
+### Option 1 – Install from source (development)
 
-  Windows:
+```bash
+git clone <repo-url>
+cd kobo_notes_exporter
+poetry install
+```
+Run with:
+```poetry run kobo --help```
 
-    python -m venv venv
-    venv\Scripts\activate
+### Option 2 - Install from built wheel
 
-  macOS/Linux:
+```pip install <filename>```
 
-    python -m venv venv
-    source venv/bin/activate
+Then run:
 
-3. Install dependencies
-
-    pip install -r requirements.txt
+``` kobo --help```
 
 
-### Basic Usage Instructions
 
-  instructions coming soon :)
+## Basic Usage Instructions
 
-### Notes
+Detect device
+```bash
+kobo detect
+```
+
+Sync local database
+```bash
+kobo sync
+```
+
+List books
+
+```bash
+kobo books
+kobo books --author "John Green"
+kobo books --latest 5
+```
+
+Export highlights
+```bash
+kobo export --latest 2
+kobo export --author "Herman Melville"
+kobo export --latest 1 --txt
+```
+
+Export all highlights
+```bash
+kobo export-all --force
+```
+
+Exports are written to:
+```code
+./exports/
+```
+
+A data/ folder is created in the current working directory to store:
+
+- Local copy of KoboReader.sqlite
+- Sync metadata
+- Cached selections
+
+## Notes
 
 The Kobo device must be mounted as a drive.
 A local copy of the database is required before listing or exporting.
