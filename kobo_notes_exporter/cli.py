@@ -1,27 +1,52 @@
-import typer
-import pandas as pd
+"""
+kobo_notes_exporter.cli
+
+Command-line interface for Kobo Notes Exporter.
+
+This module defines the Typer app and user-facing commands. It is responsible for:
+- parsing CLI options/arguments
+- printing user-friendly output (Rich)
+- orchestrating calls into core modules (device, sync_db, parser, exporter)
+
+Business logic (data parsing, filtering, exporting) lives in `kobo_notes_exporter.core`.
+"""
+
+from __future__ import annotations
+
 import json
 from datetime import datetime
-from rich import print
-from rich.table import Table
+from pathlib import Path
+from typing import Annotated, Optional
+
+import typer
 from rich.console import Console
 from rich.progress import Progress
-from typing import Annotated, Optional 
-from pathlib import Path
-import core.device as device
-import core.sync_db as sync_db
-import core.parser as parser
-import core.exporter as exporter
+from rich.table import Table
 
-CACHE_FILE = Path("./data/kobo_last_query.json")
+from kobo_notes_exporter.core import device, exporter, parser, sync_db
+
+# --------------------------------------------------------------------------
+# APP SETUP
+# --------------------------------------------------------------------------
+
 console = Console()
 app = typer.Typer(help="This is a really friendly CLI tool to help you export your ereader highlights :)")
+
+# Stores the most recent `books` selection so `export` can run without filters.
+CACHE_FILE = Path("./data/kobo_last_query.json")
 
 # --------------------------------------------------------------------------
 # HELPER FUNCTIONS
 # --------------------------------------------------------------------------
 
 def resolve_export_path(output_dir: Optional[str]) -> Path:
+    """Return the directory where exports should be written.
+
+    If `output_dir` is not provided, defaults to `<cwd>/exports`.
+    Ensures the directory exists.
+
+    The directory is created if it does not exist.
+    """
     if output_dir:
         path = Path(output_dir)
     else:
@@ -30,27 +55,31 @@ def resolve_export_path(output_dir: Optional[str]) -> Path:
     path.mkdir(parents=True, exist_ok=True)
     return path
 
-def write_cache(volume_ids: list[str]):
+def write_cache(volume_ids: list[str]) -> None:
+    """Persist the list of visible VolumeIDs so `export` can run without filters."""
     with open(CACHE_FILE, "w", encoding="utf-8") as f:
         json.dump(volume_ids, f)
 
 def read_cache() -> list[str]:
+    """Load the cached list of VolumeIDs from the last `books` command."""
     try:
         with open(CACHE_FILE, "r", encoding="utf-8") as f:
             return json.load(f)
     except (FileNotFoundError, json.JSONDecodeError):
         return []
 
-def clear_cache():
+def clear_cache() -> None:
+    """Clear the cached selection used by `export` when no filters are provided."""
     write_cache([])
 
-def show_sync_status():
+def show_sync_status() -> None:
+    """Print the last sync time if local sync metadata is available."""
 
     metadata_path = Path("./data/sync_metadata.json")
 
     if not metadata_path.exists():
         console.print("[yellow]⚠ No local database found.[/yellow]")
-        console.print("[dim]Run 'sync' to create a local copy.[/dim]")
+        console.print("[dim]Run 'kobo sync' to create a local copy.[/dim]")
         return
 
     try:
@@ -79,16 +108,16 @@ def show_sync_status():
 # --------------------------------------------------------------------------
 
 @app.command()
-def hello(name: str = typer.Argument(help="Person to greet")):
+def hello(name: str = typer.Argument(help="Person to greet")) -> None:
     """
-    say hello to someone
+    Say hello to someone
     """
     console.print(f"[green]hello {name}[/green] :smile:")
 
 @app.command()
-def detect():
+def detect() -> None:
     """
-    Detect attached kobo device and locate database, but does not sync
+    Detect attached Kobo device and display database path (no sync)
     """
 
     db_path = device.find_kobo_db()
@@ -100,10 +129,8 @@ def detect():
     console.print(f"[green]Kobo database found at:[/green] {db_path}")   
 
 @app.command()
-def sync():
-    """
-    Sync Kobo database locally 
-    """
+def sync() -> None:
+    """Copy the Kobo database locally for safe processing""" 
     console.print(f"[bold]Looking for Kobo device...[/bold]")
     db_path = device.find_kobo_db()
 
@@ -125,10 +152,8 @@ def books(
             latest: Annotated[Optional[int], typer.Option("--latest", help="Filter top N most recently updated books")] = None,
             limit: Annotated[Optional[int], typer.Option("--limit", "-l", help="Limit number of results shown")] = 10,
             all: Annotated[bool, typer.Option(help="Show all books")] = False
-        ):
-    """
-    Show books with highlight counts
-    """
+        ) -> None:
+    """Show books with highlight counts, options to filter by author/title/recency"""
     
     sync_db.ensure_local_db()
     
@@ -137,9 +162,11 @@ def books(
 
     console.print("[dim]Loading highlight data...[/dim]")
 
-    books = parser.get_highlight_counts()
-    books = books.sort_values("LatestHighlight", ascending=False)
+    # Filter + sort logic lives in the parser module
+    # books = parser.get_highlight_counts()
+    # books = books.sort_values("LatestHighlight", ascending=False)
 
+    # Filter + sort logic lives in the parser module
     books = parser.get_filtered_books(
         author=author,
         title=title,
@@ -153,13 +180,12 @@ def books(
         console.print()
         raise typer.Exit()
 
-
     if all:
         pass
     elif limit:
         books = books.head(limit)
     
-    # formatting table for display
+    # format table for display
     table = Table(title="Books With Highlights")
 
     table.add_column("Title", style="bold")
@@ -179,7 +205,7 @@ def books(
     console.print(table)
     console.print()
 
-    # store book_ids in cache
+    # Cache the visible books so `export` can run without repeating filters
     visible_volume_ids = books["VolumeID"].tolist()
     write_cache(visible_volume_ids)
 
@@ -192,9 +218,9 @@ def export(
             latest: Annotated[Optional[int], typer.Option("--latest", help="Filter top N most recently updated books")] = None,
             txt: Annotated[bool, typer.Option(help="export to txt format")] = False,
             output_dir: Annotated[Optional[str],typer.Option("--output-dir", "-o", help="Specify directory to export files into")] = None
-        ):
+        ) -> None:
     """
-    Export books matching filters to markdown file
+    Export highlights for selected books to Markdown (default) or TXT
     """
 
     sync_db.ensure_local_db()
@@ -232,14 +258,10 @@ def export(
         
         used_cache = True
 
-    # specify export path
     export_path = resolve_export_path(output_dir)
-
-    # msg to user before export
     console.print(f"[bold]Preparing to export {len(books)} book(s)...[/bold]")
 
-
-    # export selected books
+    # export formatting lives in exporter module
     for book_id in books:
 
         title = parser.get_book_title(book_id)
@@ -257,7 +279,7 @@ def export(
     console.print()
 
 
-    # clear cache if used
+    # Clear the cache only when we consumed it (prevents surprising behavior)
     if used_cache:
         clear_cache()
         # console.print("Selection cleared.")
@@ -268,9 +290,9 @@ def export_all(
     force: Annotated[bool, typer.Option(prompt="Are you sure you want to export all?")],
     txt: Annotated[bool, typer.Option(help="export to txt format")] = False,
     output_dir: Annotated[Optional[str],typer.Option("--output-dir", "-o", help="Directory to export files into")] = None
-    ):
+    ) -> None:
     """
-    export all highlights to md, with --txt as option
+    Export highlights for every book found to Markdown (default) or TXT
     """
 
     sync_db.ensure_local_db()
@@ -311,11 +333,16 @@ def export_all(
         console.print("[yellow]Operation cancelled.[/yellow]")
 
 @app.command()
-def version():
+def version() -> None:
     """Show installed version"""
     console.print("Kobo Notes Exporter v0.1.0")
 
+# --------------------------------------------------------------------------
+# MAIN
+# --------------------------------------------------------------------------
+
 def main():
+    """CLI entrypoint with simple error handling"""
     try:
         app()
     except ValueError as e:
