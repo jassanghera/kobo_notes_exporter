@@ -80,13 +80,36 @@ Run with:
 poetry run kobo --help
 ```
 
-### Option 2 - Install from built wheel
+### Option 2 – Install from a Release Wheel
 
-```pip install <filename>```
+1. Go to the **GitHub Releases** page for this repository.
+2. Download the latest `.whl` file (e.g., `kobo_notes_exporter-0.1.0-py3-none-any.whl`).
+3. In your terminal, navigate to the folder containing the downloaded file.
+4. Install using:
 
-Then run:
+```bash
+pip install kobo_notes_exporter-0.1.0-py3-none-any.whl
+```
 
-``` kobo --help```
+After installation, verify:
+```bash
+kobo --help
+```
+
+#### ⚠ If the `kobo` Command Is Not Recognized
+
+On some systems, Python’s Scripts directory may not be on your system PATH.  
+If you see an error like:
+
+  ```'kobo' is not recognized as an internal or external command```
+
+You can run the CLI using Python directly:
+
+```bash
+python -m kobo_notes_exporter.cli --help
+```
+
+If this works, you may need to add Python’s Scripts folder to your PATH environment variable.
 
 ## Usage
 
