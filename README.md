@@ -4,6 +4,8 @@ A Python command-line tool that extracts highlights from a Kobo eReader and expo
 
 The tool copies the Kobo device’s internal SQLite database locally, processes highlight data offline, and generates clean, readable exports.
 
+⚠ Currently supports Windows only (device detection relies on drive-letter scanning).
+
 ## Features
 
 - Detects a connected Kobo device (Windows)
@@ -23,15 +25,17 @@ The tool copies the Kobo device’s internal SQLite database locally, processes 
 
 The application follows a layered structure:
 
+```
 CLI (Typer + Rich)
-↓
+    ↓
 Parser (Business Logic)
-↓
+    ↓
 Database Loader (SQLite → pandas)
-↓
+    ↓
 Sync Layer (Local DB copy)
-↓
+    ↓
 Device Detection
+```
 
 ### Project Structure
 
@@ -51,8 +55,8 @@ kobo_notes_exporter/
 └── README.md
 ```
 
-The CLI layer handles user interaction and error handling.
-Core modules handle database access, filtering, and export logic.
+The CLI layer is responsible for user interaction and presentation.
+The core/ modules implement database access, data transformation, and export logic.
 
 
 Key design decisions:
@@ -72,7 +76,9 @@ cd kobo_notes_exporter
 poetry install
 ```
 Run with:
-```poetry run kobo --help```
+```bash
+poetry run kobo --help
+```
 
 ### Option 2 - Install from built wheel
 
@@ -82,9 +88,7 @@ Then run:
 
 ``` kobo --help```
 
-
-
-## Basic Usage Instructions
+## Usage
 
 Detect device
 ```bash
@@ -127,10 +131,20 @@ A data/ folder is created in the current working directory to store:
 - Sync metadata
 - Cached selections
 
+## Future Improvements
+
+- Cross-platform device detection
+- Configurable runtime data directory
+- PyPI publication
+- Improved export formatting options
+- GUI frontend
+
 ## Notes
 
-The Kobo device must be mounted as a drive.
+The Kobo device must be mounted as a drive (Windows).
+
 A local copy of the database is required before listing or exporting.
+
 The tool displays the last sync time when running database-dependent commands.
 
 
