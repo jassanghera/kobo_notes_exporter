@@ -147,6 +147,8 @@ A local copy of the database is required before listing or exporting.
 
 The tool displays the last sync time when running database-dependent commands.
 
+## License
 
+This project is licensed under the MIT License.
 
 
