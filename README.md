@@ -161,6 +161,7 @@ A data/ folder is created in the current working directory to store:
 - PyPI publication
 - Improved export formatting options
 - GUI frontend
+- Export of annotations & colour coded highlights
 
 ## Notes
 
