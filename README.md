@@ -6,6 +6,10 @@ The tool copies the Kobo device’s internal SQLite database locally, processes 
 
 ⚠ Currently supports Windows only (device detection relies on drive-letter scanning).
 
+## Project Write-Up
+
+Find a detailed project write-up here on my blog: (https://substack.com/home/post/p-196059271)
+
 ## Features
 
 - Detects a connected Kobo device (Windows)
